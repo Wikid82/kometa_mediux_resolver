@@ -1,0 +1,10 @@
+# Global code owners
+* @Wikid82
+
+# Requirements files
+requirements*.txt @Wikid82
+
+# Configuration files
+*.yml @Wikid82
+*.yaml @Wikid82
+*.json @Wikid82

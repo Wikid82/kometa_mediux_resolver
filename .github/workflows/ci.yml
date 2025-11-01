@@ -1,0 +1,241 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  PYTHONUNBUFFERED: 1
+  FORCE_COLOR: 1
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run pre-commit hooks
+      run: |
+        pre-commit run --all-files --show-diff-on-failure
+
+    - name: Run tests with coverage
+      run: |
+        pytest -v --cov=. --cov-report=xml --cov-report=term-missing
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install black isort flake8 mypy bandit
+
+    - name: Check code formatting with Black
+      run: black --check --diff .
+
+    - name: Check import sorting with isort
+      run: isort --check-only --diff .
+
+    - name: Lint with flake8
+      run: flake8 .
+
+    - name: Type check with mypy
+      run: mypy . || true  # Don't fail on type errors for now
+
+    - name: Security check with bandit
+      run: bandit -r . -f json -o bandit-report.json || true
+
+    - name: Upload bandit report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: bandit-report
+        path: bandit-report.json
+
+  test-without-selenium:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install core dependencies only
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-core.txt
+        pip install pytest pytest-cov pytest-mock
+
+    - name: Run tests without selenium
+      run: |
+        pytest tests/test_kometa_mediux_resolver.py tests/test_cli.py tests/test_utilities.py -v
+
+    - name: Test CLI functionality
+      run: |
+        python kometa_mediux_resolver.py --help
+        chmod +x kometa-resolver
+        ./kometa-resolver --help
+
+  integration-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run integration tests
+      run: |
+        pytest tests/ -m "integration" -v || true
+
+    - name: Test full workflow (dry run)
+      run: |
+        python kometa_mediux_resolver.py --root ./resolver_test_library --output /tmp/test_output.json -v
+
+    - name: Verify output file
+      run: |
+        if [ -f /tmp/test_output.json ]; then
+          echo "Output file created successfully"
+          cat /tmp/test_output.json | head -20
+        else
+          echo "Output file not created"
+          exit 1
+        fi
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Check documentation
+      run: |
+        # Check that all Python files have docstrings
+        python -c "
+        import ast
+        import sys
+        from pathlib import Path
+
+        def check_docstrings(file_path):
+            try:
+                with open(file_path, 'r') as f:
+                    tree = ast.parse(f.read())
+
+                for node in ast.walk(tree):
+                    if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
+                        if not ast.get_docstring(node):
+                            print(f'Missing docstring in {file_path}: {node.name}')
+                            return False
+                return True
+            except Exception as e:
+                print(f'Error parsing {file_path}: {e}')
+                return True  # Don't fail on parse errors
+
+        all_good = True
+        for py_file in Path('.').glob('*.py'):
+            if not check_docstrings(py_file):
+                all_good = False
+
+        if not all_good:
+            print('Some functions/classes are missing docstrings')
+            sys.exit(1)
+        else:
+            print('All functions and classes have docstrings')
+        "
+
+    - name: Validate YAML files
+      run: |
+        python -c "
+        import yaml
+        from pathlib import Path
+
+        for yaml_file in Path('.').rglob('*.yml'):
+            try:
+                with open(yaml_file, 'r') as f:
+                    yaml.safe_load(f)
+                print(f'✓ {yaml_file}')
+            except Exception as e:
+                print(f'✗ {yaml_file}: {e}')
+        "
+
+    - name: Check README and documentation
+      run: |
+        # Check that README exists and has basic content
+        if [ ! -f README.md ]; then
+          echo "README.md not found"
+          exit 1
+        fi
+
+        if [ $(wc -l < README.md) -lt 10 ]; then
+          echo "README.md seems too short"
+          exit 1
+        fi
+
+        echo "Documentation checks passed"

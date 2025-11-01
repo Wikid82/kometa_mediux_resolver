@@ -1,0 +1,33 @@
+[flake8]
+max-line-length = 100
+extend-ignore =
+    E203,
+    E501,
+    W503,
+    E402,
+    F401,
+exclude =
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    .eggs,
+    *.egg,
+    build,
+    dist,
+    htmlcov,
+    .tox,
+    .mypy_cache,
+    .pytest_cache
+per-file-ignores =
+    # Tests can have longer lines and unused imports
+    tests/*:E501,F401,F811
+    # Allow unused imports in __init__.py
+    __init__.py:F401
+    # Configuration files
+    setup.py:E402
+    conftest.py:E402
+max-complexity = 15
+import-order-style = google
+application-import-names = kometa_mediux_resolver,mediux_scraper
+docstring-convention = google

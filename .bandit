@@ -1,0 +1,8 @@
+[bandit]
+# Bandit configuration for security linting
+exclude_dirs = ["tests", ".venv", "venv", "htmlcov"]
+skips = ["B101"]  # Skip assert_used test (common in tests)
+
+[bandit.assert_used]
+# Allow assert statements in test files
+skips = ["*/tests/*"]

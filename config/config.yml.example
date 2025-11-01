@@ -1,0 +1,45 @@
+# Kometa MediUX Resolver configuration (example)
+# Copy this to config.yml and edit values as needed for your environment.
+
+# Enable logging (true/false). Default: true
+logging: true
+
+# Root path to scan for Kometa YAML files. Default: repository root (".")
+root: .
+
+# Apply options: when 'apply' is true, changes will be written. Default: true
+apply: true
+# When 'backup' is true, the original file will be preserved as a timestamped .bak file.
+# Otherwise the file will be overwritten in-place (atomic replace).
+backup: false
+
+# Logging output file (relative to the config folder). If empty, console only.
+log_file: config/logs/kometa_resolver.log
+log_max_bytes: 1048576
+log_backups: 5
+# Log level when verbosity is not supplied via CLI (-v). One of: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level: INFO
+# Heartbeat interval (seconds) for live progress readout
+heartbeat_interval_seconds: 15
+
+# MediUX API base override (optional)
+api_base: https://api.mediux.pro
+
+# Additional fields (mediux credentials can still be provided via env variables)
+# mediux_username: null
+# mediux_password: null
+# mediux_nickname: null
+
+# Caching and Sonarr integration
+# Path to sqlite cache DB (relative to resolver folder)
+cache_db: config/cache.db
+# Cache TTL (seconds) for probe results
+cache_ttl_seconds: 86400
+
+# Optional Sonarr integration. When configured, the resolver will query Sonarr's
+# calendar endpoint for recently aired episodes and prioritize scanning of matching
+# shows (by TVDB id found in Kometa metadata).
+sonarr_url: ''
+sonarr_api_key: ''
+# Lookback window (days) for recently aired episodes
+sonarr_days: 7

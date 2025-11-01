@@ -1,0 +1,44 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "timezone": "America/New_York",
+  "schedule": [
+    "before 6am on monday"
+  ],
+  "labels": [
+    "dependencies"
+  ],
+  "semanticCommits": "enabled",
+  "semanticCommitType": "chore",
+  "semanticCommitScope": "deps",
+  "pip_requirements": {
+    "fileMatch": ["(^|/)requirements.*\\.txt$"]
+  },
+  "packageRules": [
+    {
+      "matchDatasources": ["pypi"],
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true,
+      "automerge": false
+    },
+    {
+      "matchDatasources": ["pypi"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "matchDatasources": ["pypi"],
+      "matchPackageNames": ["selenium"],
+      "automerge": false,
+      "dependencyDashboardApproval": true
+    }
+  ],
+  "prHourlyLimit": 2,
+  "prConcurrentLimit": 3,
+  "dependencyDashboard": true,
+  "platformAutomerge": true,
+  "automergeStrategy": "merge-commit"
+}
