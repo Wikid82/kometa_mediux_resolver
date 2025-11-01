@@ -149,6 +149,7 @@ def run_security_scan():
 
 
 def main():
+    """Main entry point for development tools CLI."""
     parser = argparse.ArgumentParser(description="Development tools for Kometa MediUX Resolver")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 

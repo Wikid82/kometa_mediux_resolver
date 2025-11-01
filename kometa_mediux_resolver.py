@@ -40,6 +40,14 @@ SET_URL_RE = re.compile(r"mediux\.pro/sets/(\d+)")
 
 
 def find_set_ids_in_text(text: str) -> list[str]:
+    """Extract unique MediUX set IDs from text containing set URLs.
+    
+    Args:
+        text: Text content potentially containing mediux.pro/sets/ URLs
+        
+    Returns:
+        List of unique set IDs found in the text
+    """
     return list({m.group(1) for m in SET_URL_RE.finditer(text)})
 
 
@@ -241,6 +249,14 @@ def probe_url(url: str, api_key: str | None = None, timeout: int = 10) -> dict[s
 
 ### Simple sqlite cache helpers
 def init_cache(db_path: str) -> sqlite3.Connection:
+    """Initialize SQLite cache database for API responses.
+    
+    Args:
+        db_path: Path to the SQLite database file (relative or absolute)
+        
+    Returns:
+        SQLite connection object with the cache table initialized
+    """
     p = Path(db_path)
     if not p.is_absolute():
         p = Path(__file__).resolve().parent / db_path
@@ -273,6 +289,16 @@ def init_cache(db_path: str) -> sqlite3.Connection:
 
 
 def get_cached_probe(conn: sqlite3.Connection, url: str, max_age: int) -> dict[str, Any] | None:
+    """Retrieve a cached API probe result if it exists and is not stale.
+    
+    Args:
+        conn: SQLite database connection
+        url: API URL to check in cache
+        max_age: Maximum age in seconds for cache validity
+        
+    Returns:
+        Cached probe data dict or None if not found/stale
+    """
     try:
         cur = conn.cursor()
         cur.execute("SELECT status, body, last_checked FROM probe_cache WHERE url = ?", (url,))
@@ -296,6 +322,14 @@ def get_cached_probe(conn: sqlite3.Connection, url: str, max_age: int) -> dict[s
 def set_cached_probe(
     conn: sqlite3.Connection, url: str, status: int | None, body: str | None
 ) -> None:
+    """Store an API probe result in the cache.
+    
+    Args:
+        conn: SQLite database connection
+        url: API URL being cached
+        status: HTTP status code or None
+        body: Response body or None
+    """
     try:
         cur = conn.cursor()
         cur.execute(
@@ -359,6 +393,11 @@ def touch_activity(count_inc: int = 0) -> None:
 
 
 def get_activity_snapshot() -> tuple[int, float]:
+    """Get current processing activity statistics.
+    
+    Returns:
+        Tuple of (processed_count, last_activity_timestamp)
+    """
     with _activity_lock:
         return _processed_count, _last_activity
 
@@ -381,6 +420,14 @@ def pick_best_asset(assets: list[dict[str, Any]]) -> list[str]:
     priority = ["title_card", "title-card", "titlecard", "poster", "backdrop"]
 
     def key_fn(a: dict[str, Any]) -> int:
+        """Score function to prioritize assets by type and name.
+        
+        Args:
+            a: Asset dict with 'type' and 'name' fields
+            
+        Returns:
+            Integer score (lower is higher priority)
+        """
         # lower score for higher priority so sorting ascending gives preferred first
         t = (a.get("type") or "") or ""
         n = (a.get("name") or "") or ""
@@ -407,6 +454,15 @@ def pick_best_asset(assets: list[dict[str, Any]]) -> list[str]:
 
 
 def construct_asset_url(api_base: str, asset_id: str) -> str:
+    """Construct full asset URL from API base and asset ID.
+    
+    Args:
+        api_base: Base API URL
+        asset_id: Asset identifier
+        
+    Returns:
+        Full asset URL
+    """
     return f"{api_base.rstrip('/')}/assets/{asset_id}"
 
 
@@ -437,6 +493,20 @@ def propose_changes_for_file(
     cache_conn: sqlite3.Connection | None = None,
     cache_ttl: int = 86400,
 ) -> dict[str, Any] | None:
+    """Analyze a YAML file and propose URL changes for MediUX sets.
+    
+    Args:
+        file_path: Path to YAML file to analyze
+        api_base: MediUX API base URL
+        api_key: Optional API key for authentication
+        use_scrape: Whether to use web scraping fallback
+        mediux_opts: Options for MediUX scraper
+        cache_conn: SQLite connection for caching
+        cache_ttl: Cache time-to-live in seconds
+        
+    Returns:
+        Dict with proposed changes or None if no metadata found
+    """
     text = file_path.read_text(encoding="utf-8")
     if "metadata:" not in text:
         return None
@@ -549,6 +619,14 @@ def scan_root(
     results = []
 
     def match_file(p: Path) -> bool:
+        """Check if a file path should be processed based on filters.
+        
+        Args:
+            p: File path to check
+            
+        Returns:
+            True if file should be processed
+        """
         if exclude_config and p.name.lower().startswith("config"):
             return False
         if not file_filter:
@@ -643,6 +721,14 @@ def apply_changes(
 
     # helper to stringify mapping keys for JSON Schema validation
     def _stringify(obj):
+        """Recursively convert all dict keys to strings for JSON serialization.
+        
+        Args:
+            obj: Object to stringify (dict, list, or primitive)
+            
+        Returns:
+            Object with all dict keys converted to strings
+        """
         if isinstance(obj, dict):
             return {str(k): _stringify(v) for k, v in obj.items()}
         if isinstance(obj, list):
@@ -805,6 +891,11 @@ def apply_changes(
 
 
 def main(argv=None):
+    """Main entry point for kometa-resolver CLI tool.
+    
+    Args:
+        argv: Command line arguments (None to use sys.argv)
+    """
     # Keep the script filename stable but recommend a concise CLI program name.
     parser = argparse.ArgumentParser(prog="kometa-resolver")
     parser.add_argument(
@@ -960,6 +1051,15 @@ def main(argv=None):
 
     # Helper: parse boolean-like values from env/config
     def _bool_from(val, default=False):
+        """Parse boolean value from various input types.
+        
+        Args:
+            val: Value to parse (bool, str, int, or None)
+            default: Default value if val is None
+            
+        Returns:
+            Boolean value
+        """
         if val is None:
             return default
         if isinstance(val, bool):
@@ -1167,6 +1267,7 @@ def main(argv=None):
     stop_event = threading.Event()
 
     def _heartbeat():
+        """Background thread that logs periodic activity heartbeat."""
         while not stop_event.wait(heartbeat_interval):
             proc, last = get_activity_snapshot()
             ago = time.time() - last

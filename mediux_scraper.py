@@ -39,10 +39,16 @@ class MediuxScraper:
     """
 
     def __init__(self):
+        """Initialize the MediUX scraper with lazy-loaded dependencies."""
         # lazy init logger
         self.logger = logger
 
     def _import_selenium(self):
+        """Lazily import Selenium dependencies when needed for scraping.
+        
+        Raises:
+            RuntimeError: If selenium is not installed
+        """
         try:
             from selenium import webdriver
             from selenium.webdriver.chrome.options import Options
@@ -61,6 +67,13 @@ class MediuxScraper:
         profile_path: str | None = None,
         chromedriver_path: str | None = None,
     ):
+        """Initialize Chrome WebDriver for web scraping.
+        
+        Args:
+            headless: Run browser in headless mode
+            profile_path: Path to Chrome profile directory
+            chromedriver_path: Path to chromedriver executable
+        """
         webdriver, Options, By, WebDriverWait, EC = self._import_selenium()
         opts = Options()
         if headless:
