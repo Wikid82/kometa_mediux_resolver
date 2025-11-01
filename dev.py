@@ -69,7 +69,15 @@ def setup_environment():
 
 def run_tests(coverage=False, fast=False):
     """Run the test suite."""
-    cmd = [sys.executable, "-m", "pytest"]
+    # Use virtual environment Python if available
+    project_root = Path(__file__).parent.absolute()
+    venv_python = project_root / ".venv" / "bin" / "python"
+    if venv_python.exists():
+        python_cmd = str(venv_python)
+    else:
+        python_cmd = sys.executable
+
+    cmd = [python_cmd, "-m", "pytest"]
 
     if fast:
         cmd.extend(["-m", "not selenium"])
@@ -176,6 +184,13 @@ def main():
     import os
 
     os.chdir(project_root)
+
+    # Use virtual environment Python if available
+    venv_python = project_root / ".venv" / "bin" / "python"
+    if venv_python.exists():
+        python_cmd = str(venv_python)
+    else:
+        python_cmd = sys.executable
 
     if args.command == "setup":
         setup_environment()
