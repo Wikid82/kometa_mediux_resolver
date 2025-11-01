@@ -14,24 +14,39 @@
   "semanticCommitType": "chore",
   "semanticCommitScope": "deps",
   "pip_requirements": {
-    "fileMatch": ["(^|/)requirements.*\\.txt$"]
+    "managerFilePatterns": [
+      "/(^|/)requirements.*\\.txt$/"
+    ]
   },
   "packageRules": [
     {
-      "matchDatasources": ["pypi"],
-      "matchUpdateTypes": ["major"],
+      "matchDatasources": [
+        "pypi"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "dependencyDashboardApproval": true,
       "automerge": false
     },
     {
-      "matchDatasources": ["pypi"],
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchDatasources": [
+        "pypi"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
       "automerge": true,
       "automergeType": "pr"
     },
     {
-      "matchDatasources": ["pypi"],
-      "matchPackageNames": ["selenium"],
+      "matchDatasources": [
+        "pypi"
+      ],
+      "matchPackageNames": [
+        "selenium"
+      ],
       "automerge": false,
       "dependencyDashboardApproval": true
     }
