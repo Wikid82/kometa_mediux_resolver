@@ -1,0 +1,27 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Tests: pytest (with coverage)",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "source .venv/bin/activate && pytest"
+      ],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Coverage: generate XML",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "source .venv/bin/activate && coverage xml"
+      ],
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}

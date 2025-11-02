@@ -45,7 +45,7 @@ class MediuxScraper:
 
     def _import_selenium(self):
         """Lazily import Selenium dependencies when needed for scraping.
-        
+
         Raises:
             RuntimeError: If selenium is not installed
         """
@@ -68,7 +68,7 @@ class MediuxScraper:
         chromedriver_path: str | None = None,
     ):
         """Initialize Chrome WebDriver for web scraping.
-        
+
         Args:
             headless: Run browser in headless mode
             profile_path: Path to Chrome profile directory

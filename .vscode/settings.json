@@ -1,0 +1,9 @@
+{
+  "coverage-gutters.coverageFileNames": [
+    "coverage.xml",
+    "cov.xml",
+    "coverage/lcov.info"
+  ],
+  "coverage-gutters.showGutterCoverage": true,
+  "coverage-gutters.showLineCoverage": true
+}

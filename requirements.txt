@@ -1,28 +1,10 @@
-# Core dependencies
--r requirements-core.txt
-bandit>=1.7.0
+# Production dependencies
+jsonschema>=4.19
+PyYAML>=6.0
+requests>=2.28
+ruamel.yaml>=0.17.21
+selenium>=4.10
+webdriver-manager>=4.0
 
-# Code quality and formatting
-black>=22.0.0
-codecov>=2.1.12
-coverage>=7.0.0
-flake8>=5.0.0
-flake8-black>=0.3.0
-flake8-docstrings>=1.6.0
-flake8-isort>=5.0.0
-
-# Development utilities
-httpx>=0.24.0  # For testing HTTP requests
-isort>=5.10.0
-mypy>=1.0.0
-
-# Pre-commit hooks
-pre-commit>=2.20.0
-
-# Development and testing dependencies
-pytest>=7.0.0
-pytest-asyncio>=0.21.0
-pytest-cov>=4.0.0
-pytest-mock>=3.10.0
-pytest-xdist>=3.0.0
-responses>=0.23.0  # For mocking HTTP responses
+# To install development dependencies, also install:
+# pip install -r requirements-dev.txt

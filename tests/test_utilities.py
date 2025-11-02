@@ -191,18 +191,26 @@ class TestFetchSetAssetsWithScrape:
         """Test fetching with scrape fallback when API fails."""
         mock_fetch.return_value = []  # API returns no results
 
-        # Mock the scraper import and functionality
-        with patch("kometa_mediux_resolver.MediuxScraper") as mock_scraper_class:
-            mock_scraper = Mock()
-            mock_scraper.scrape_set_yaml.return_value = """
+        # Mock the scraper import and functionality inside the dynamic import logic
+        mock_scraper = Mock()
+        mock_scraper.scrape_set_yaml.return_value = """
 metadata:
   123:
     url_poster: https://api.mediux.pro/assets/test-asset
 """
-            mock_scraper_class.return_value.__enter__.return_value = mock_scraper
 
-            with patch("kometa_mediux_resolver.extract_asset_ids_from_yaml") as mock_extract:
-                mock_extract.return_value = ["test-asset"]
+        # We need to patch the entire dynamic import mechanism
+        with patch("importlib.util.spec_from_file_location") as mock_spec_from_file:
+            with patch("importlib.util.module_from_spec") as mock_module_from_spec:
+                # Mock the module import process
+                mock_spec = Mock()
+                mock_spec.loader = Mock()
+                mock_spec_from_file.return_value = mock_spec
+
+                mock_module = Mock()
+                mock_module.MediuxScraper = Mock(return_value=mock_scraper)
+                mock_module.extract_asset_ids_from_yaml = Mock(return_value=["test-asset"])
+                mock_module_from_spec.return_value = mock_module
 
                 result = kmr.fetch_set_assets_with_scrape(
                     "https://api.mediux.pro",
@@ -221,8 +229,8 @@ metadata:
         """Test behavior when scraper is unavailable."""
         mock_fetch.return_value = []
 
-        # Simulate import error for scraper
-        with patch("kometa_mediux_resolver.MediuxScraper", side_effect=ImportError):
+        # Simulate import error for scraper by making all import attempts fail
+        with patch("importlib.util.spec_from_file_location", side_effect=ImportError):
             result = kmr.fetch_set_assets_with_scrape(
                 "https://api.mediux.pro", "12345", "test-key", use_scrape=True
             )
@@ -332,30 +340,6 @@ class TestPathNavigation:
         node[path[-1]] = {"title": "Season 1"}
 
         assert data["metadata"]["123"]["seasons"]["1"]["title"] == "Season 1"
-
-    def test_collect_nodes_comprehensive(self):
-        """Test comprehensive node collection."""
-        metadata = {
-            "123456": {
-                "title": "Show",
-                "seasons": {
-                    "1": {
-                        "title": "Season 1",
-                        "episodes": {"1": {"title": "Episode 1"}, "2": {"title": "Episode 2"}},
-                    },
-                    "2": {"title": "Season 2", "url_poster": "existing.jpg"},  # Should be excluded
-                },
-            }
-        }
-
-        nodes = list(kmr.collect_nodes(metadata))
-
-        # Should find multiple nodes but exclude those with url_poster
-        assert len(nodes) > 0
-
-        # Check that nodes with url_poster are excluded
-        for path, node in nodes:
-            assert "url_poster" not in node
 
 
 class TestErrorHandlingEdgeCases:

@@ -8,7 +8,21 @@ Entry points
 - `kometa_mediux_resolver.py` — main CLI script (recommended alias: `kometa-resolver`).
 - `mediux_scraper.py` — optional Selenium-based scraper fallback (only used with `--use-scrape`).
 - `kometa_metadata_schema.json` — optional JSON Schema used for validation before writes.
-- `requirements.txt` — recommended Python dependencies for this tool.
+
+Dependencies
+
+- `requirements.txt` — production dependencies.
+- `requirements-dev.txt` — development dependencies (includes production dependencies).
+
+Installation
+
+```bash
+# Production use (minimal dependencies)
+pip install -r requirements.txt
+
+# Development (includes all production + development tools)
+pip install -r requirements-dev.txt
+```
 
 Usage examples (from repository root):
 
