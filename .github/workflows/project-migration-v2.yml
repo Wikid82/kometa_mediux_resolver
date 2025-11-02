@@ -94,7 +94,7 @@ jobs:
 
                 const addMutation = `
                   mutation($projectId: ID!, $contentId: ID!) {
-                    addProjectV2ItemByContentId(input: {
+                    addProjectV2Item(input: {
                       projectId: $projectId
                       contentId: $contentId
                     }) {
@@ -130,7 +130,7 @@ jobs:
 
                 const addMutation = `
                   mutation($projectId: ID!, $contentId: ID!) {
-                    addProjectV2ItemByContentId(input: {
+                    addProjectV2Item(input: {
                       projectId: $projectId
                       contentId: $contentId
                     }) {
