@@ -18,6 +18,7 @@
   ],
   "semanticCommitType": "chore",
   "semanticCommitScope": "deps",
+  "recreateClosed": false,
   "pip_requirements": {
     "fileMatch": [
       "(^|/)requirements.*\\.txt$"

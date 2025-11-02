@@ -22,6 +22,7 @@ This repository is configured with Renovate bot to automatically manage dependen
 - **Selenium updates**: Require manual approval (potential breaking changes)
 - **Semantic commits**: Uses conventional commit format
 - **GitHub Actions**: Auto-updates with pinned digests for security
+- **Closed PRs/Issues**: Creates new PRs/issues instead of reopening closed ones (`recreateClosed: false`)
 
 ### Auto-Merge Configuration
 
@@ -178,6 +179,22 @@ This configuration includes several workarounds for common Python packaging issu
 - Uses `helpers:pinGitHubActionDigests` preset
 - Automatically pins actions to SHA digests
 - Improves security by preventing tag hijacking
+
+### 9. Closed PR/Issue Recreation
+
+**Issue**: By default, Renovate may reopen previously closed PRs or issues, which can clutter the repository with reopened items.
+
+**Workaround**:
+- Sets `recreateClosed: false` in the configuration
+- When a PR or issue is closed, Renovate will create a new one instead of reopening
+- Helps maintain a cleaner issue/PR history
+- Particularly useful for dependency dashboard issues that are manually closed
+
+```json
+{
+  "recreateClosed": false
+}
+```
 
 ## Setup Instructions
 
