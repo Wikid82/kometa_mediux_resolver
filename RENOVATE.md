@@ -66,7 +66,7 @@ This configuration includes several workarounds for common Python packaging issu
 
 **Issue**: Selenium updates can break due to WebDriver compatibility changes.
 
-**Workaround**: 
+**Workaround**:
 - Both `selenium` and `webdriver-manager` require manual approval
 - Updates are marked in the dependency dashboard
 - Allows time to test WebDriver compatibility before merging
@@ -326,7 +326,7 @@ Follow the same branch protection steps as Option 1.
 
 **Symptom**: Multiple requirements files have conflicting versions for the same package.
 
-**Solution**: 
+**Solution**:
 - Ensure `requirements-dev.txt` includes `-r requirements.txt` at the top
 - Use `requirements-core.txt` for minimal installations
 - Core dependencies should be defined in `requirements.txt` only

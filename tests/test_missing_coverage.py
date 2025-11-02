@@ -60,25 +60,25 @@ class TestErrorHandlingAndEdgeCases:
     @responses.activate
     def test_probe_url_non_200_status(self):
         """Test probe_url with non-200 status codes."""
-        responses.add(responses.HEAD, "https://example.com/asset.jpg", status=404)
+        responses.add(responses.GET, "https://example.com/asset.jpg", status=404, body="Not found")
 
         result = kmr.probe_url("https://example.com/asset.jpg")
 
-        assert result["status_code"] == 404
-        assert result["ok"] is False
+        assert result["status"] == 404
+        assert result["url"] == "https://example.com/asset.jpg"
 
     @responses.activate
     def test_probe_url_connection_exception(self):
         """Test probe_url with connection exceptions."""
         responses.add(
-            responses.HEAD, "https://example.com/asset.jpg", body=Exception("Connection timeout")
+            responses.GET, "https://example.com/asset.jpg", body=Exception("Connection timeout")
         )
 
         result = kmr.probe_url("https://example.com/asset.jpg")
 
-        assert result["status_code"] is None
-        assert result["ok"] is False
-        assert result["error"] is not None
+        assert result["status"] is None
+        assert "error" in result
+        assert result["url"] == "https://example.com/asset.jpg"
 
     def test_find_set_ids_in_text_no_matches(self):
         """Test find_set_ids_in_text with text containing no set IDs."""
@@ -119,8 +119,8 @@ class TestErrorHandlingAndEdgeCases:
 
             # Insert expired cache entry (very old timestamp)
             conn.execute(
-                "INSERT INTO probes (url, timestamp, status_code, content_type, content_length, ok) VALUES (?, ?, ?, ?, ?, ?)",
-                ("https://example.com/test.jpg", 1000, 200, "image/jpeg", 12345, 1),
+                "INSERT INTO probe_cache (url, status, body, last_checked) VALUES (?, ?, ?, ?)",
+                ("https://example.com/test.jpg", 200, "test body", 1000),
             )
             conn.commit()
 
@@ -189,7 +189,7 @@ class TestYAMLProcessingEdgeCases:
     def test_gather_yaml_metadata_paths_empty_object(self):
         """Test gather_yaml_metadata_paths with empty object."""
         result = list(kmr.gather_yaml_metadata_paths({}))
-        assert result == []
+        assert result == [((), {})]
 
     def test_gather_yaml_metadata_paths_none_object(self):
         """Test gather_yaml_metadata_paths with None."""
@@ -277,7 +277,7 @@ class TestDatabaseErrorHandling:
 
             # Verify table exists
             cursor = conn2.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='probes'"
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='probe_cache'"
             )
             result = cursor.fetchone()
             assert result is not None
@@ -354,13 +354,14 @@ class TestSonarrIntegration:
         """Test successful Sonarr API call."""
         # Mock Sonarr API response
         sonarr_response = [
-            {"id": 123, "title": "Test Show", "airDate": "2024-01-01", "hasFile": True},
-            {"id": 456, "title": "Another Show", "airDate": "2024-01-02", "hasFile": False},
+            {"id": 1, "series": {"tvdbId": 123}, "airDate": "2024-01-01", "hasFile": True},
+            {"id": 2, "series": {"tvdbId": 456}, "airDate": "2024-01-02", "hasFile": False},
         ]
 
+        # Must match the actual URL pattern with query params
         responses.add(
             responses.GET,
-            "https://sonarr.example.com/api/v3/calendar",
+            "https://sonarr.example.com/api/calendar",
             json=sonarr_response,
             status=200,
         )

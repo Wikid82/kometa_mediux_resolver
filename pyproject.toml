@@ -116,3 +116,53 @@ module = [
     "jsonschema.*",
 ]
 ignore_missing_imports = true
+
+[tool.ruff]
+# Exclude non-Python files and directories from linting
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    "htmlcov",
+    "build",
+    "dist",
+    ".eggs",
+    "*.egg-info",
+    ".bandit",
+    ".flake8",
+    ".dockerignore",
+    ".gitignore",
+    ".renovaterc",
+    ".secrets.baseline",
+    "*.json",
+    "*.yml",
+    "*.yaml",
+    "*.md",
+    "Makefile",
+    "LICENSE",
+]
+line-length = 100
+target-version = "py38"
+
+[tool.ruff.lint]
+# Enable pycodestyle (E/W), Pyflakes (F), and isort (I)
+select = ["E", "F", "W", "I"]
+ignore = [
+    "E501",  # Line too long (handled by formatter)
+    "E712",  # Comparison to True/False (sometimes needed in tests)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Allow star imports and unused imports in __init__.py files
+"__init__.py" = ["F401", "F403"]
+# Allow common test patterns: unused imports, unused variables, assert statements
+"tests/**/*.py" = [
+    "S101",   # Allow assert statements
+    "F401",   # Allow unused imports (fixtures, pytest markers, etc.)
+    "F841",   # Allow unused local variables (test setup/mocking)
+]
+# Allow unused variables in dev scripts
+"dev.py" = ["F841"]

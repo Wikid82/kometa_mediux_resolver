@@ -156,7 +156,10 @@ def fetch_set_assets_with_scrape(
         from .mediux_scraper import MediuxScraper, extract_asset_ids_from_yaml
     except Exception:
         try:
-            from scripts.mediux_scraper import MediuxScraper, extract_asset_ids_from_yaml
+            from scripts.mediux_scraper import (  # type: ignore[import-not-found]  # noqa: E402, I001
+                MediuxScraper,
+                extract_asset_ids_from_yaml,
+            )
         except Exception:
             # final attempt: import directly from the local mediux_scraper.py file path
             try:

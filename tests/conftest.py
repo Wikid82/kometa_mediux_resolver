@@ -1,11 +1,15 @@
 """Test configuration and fixtures."""
 import json
+import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
 import yaml
+
+# Add project root to Python path so modules can be imported
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 @pytest.fixture
