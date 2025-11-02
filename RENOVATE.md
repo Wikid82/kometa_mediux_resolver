@@ -5,9 +5,12 @@ This repository is configured with Renovate bot to automatically manage dependen
 ## Configuration
 
 - **Main Config**: `renovate.json` - Primary Renovate configuration with auto-merge enabled
+- **Legacy Config**: `.renovaterc` - Legacy configuration file (superseded by `renovate.json`)
 - **Workflow**: `.github/workflows/renovate.yml` - GitHub Actions workflow to run Renovate
 - **CI/CD**: `.github/workflows/ci.yml` - Continuous integration for testing PRs
 - **Code Owners**: `.github/CODEOWNERS` - Defines code owners for review assignments
+
+**Note**: Renovate will use `renovate.json` as the primary configuration. The `.renovaterc` file is kept for backwards compatibility but is superseded by the more comprehensive `renovate.json` configuration.
 
 ## Features
 
