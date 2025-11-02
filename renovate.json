@@ -1,7 +1,13 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:recommended"
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits",
+    ":preserveSemverRanges",
+    "group:linters",
+    "group:test",
+    "helpers:pinGitHubActionDigests"
   ],
   "timezone": "America/New_York",
   "schedule": [
@@ -10,16 +16,16 @@
   "labels": [
     "dependencies"
   ],
-  "semanticCommits": "enabled",
   "semanticCommitType": "chore",
   "semanticCommitScope": "deps",
   "pip_requirements": {
-    "managerFilePatterns": [
-      "/(^|/)requirements.*\\.txt$/"
+    "fileMatch": [
+      "(^|/)requirements.*\\.txt$"
     ]
   },
   "packageRules": [
     {
+      "description": "Python major updates require manual approval",
       "matchDatasources": [
         "pypi"
       ],
@@ -30,6 +36,7 @@
       "automerge": false
     },
     {
+      "description": "Python minor and patch updates auto-merge",
       "matchDatasources": [
         "pypi"
       ],
@@ -41,19 +48,103 @@
       "automergeType": "pr"
     },
     {
+      "description": "Selenium updates require manual approval due to WebDriver compatibility",
       "matchDatasources": [
         "pypi"
       ],
       "matchPackageNames": [
-        "selenium"
+        "selenium",
+        "webdriver-manager"
       ],
       "automerge": false,
       "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Group Python linting and formatting tools",
+      "matchDatasources": [
+        "pypi"
+      ],
+      "matchPackagePatterns": [
+        "^(black|flake8|isort|mypy|bandit|pylint|ruff).*"
+      ],
+      "groupName": "Python linting tools",
+      "automerge": true
+    },
+    {
+      "description": "Group Python testing tools",
+      "matchDatasources": [
+        "pypi"
+      ],
+      "matchPackagePatterns": [
+        "^pytest.*",
+        "^coverage.*"
+      ],
+      "groupName": "Python testing tools",
+      "automerge": true
+    },
+    {
+      "description": "Workaround for setuptools - pin to avoid breaking changes",
+      "matchDatasources": [
+        "pypi"
+      ],
+      "matchPackageNames": [
+        "setuptools"
+      ],
+      "automerge": false,
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Workaround for pip - updates can cause issues, require approval",
+      "matchDatasources": [
+        "pypi"
+      ],
+      "matchPackageNames": [
+        "pip"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "GitHub Actions updates",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "automerge": true,
+      "pinDigests": true
+    },
+    {
+      "description": "Group all non-major updates for core dependencies",
+      "matchDatasources": [
+        "pypi"
+      ],
+      "matchPackageNames": [
+        "jsonschema",
+        "PyYAML",
+        "requests",
+        "ruamel.yaml"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "core dependencies (non-major)"
     }
   ],
   "prHourlyLimit": 2,
   "prConcurrentLimit": 3,
   "dependencyDashboard": true,
   "platformAutomerge": true,
-  "automergeStrategy": "merge-commit"
+  "automergeStrategy": "merge-commit",
+  "vulnerabilityAlerts": {
+    "labels": [
+      "security"
+    ],
+    "automerge": false
+  },
+  "lockFileMaintenance": {
+    "enabled": false
+  },
+  "python": {
+    "enabled": true
+  },
+  "ignoreDeps": []
 }
