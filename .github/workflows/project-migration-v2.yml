@@ -1,0 +1,186 @@
+name: One-Time Project Migration
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run in dry-run mode (just show what would be added)'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  migrate-existing-items:
+    runs-on: ubuntu-latest
+    name: Add existing issues and PRs to project
+
+    steps:
+    - name: Migrate existing items to project
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ secrets.PROJECTS_TOKEN }}
+        script: |
+          const dryRun = '${{ github.event.inputs.dry_run }}' === 'true';
+
+          console.log('🚀 Starting migration to GitHub Projects...');
+          console.log(`📋 Dry run mode: ${dryRun}`);
+
+          try {
+            // Get all open issues (excluding PRs)
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
+            });
+
+            // Filter out pull requests (they show up in issues endpoint)
+            const actualIssues = issues.data.filter(issue => !issue.pull_request);
+
+            // Get all open pull requests
+            const prs = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
+            });
+
+            console.log(`📝 Found ${actualIssues.length} open issues`);
+            console.log(`🔀 Found ${prs.data.length} open pull requests`);
+
+            if (dryRun) {
+              console.log('\n🔍 DRY RUN - Issues that would be added:');
+              actualIssues.forEach(issue => {
+                console.log(`  - Issue #${issue.number}: ${issue.title}`);
+              });
+
+              console.log('\n🔍 DRY RUN - PRs that would be added:');
+              prs.data.forEach(pr => {
+                console.log(`  - PR #${pr.number}: ${pr.title}`);
+              });
+
+              console.log('\n💡 To actually migrate items, re-run with dry_run="false"');
+              return;
+            }
+
+            // Get project ID using GraphQL
+            const projectQuery = `
+              query($owner: String!, $number: Int!) {
+                user(login: $owner) {
+                  projectV2(number: $number) {
+                    id
+                  }
+                }
+              }
+            `;
+
+            const projectResult = await github.graphql(projectQuery, {
+              owner: context.repo.owner,
+              number: 3
+            });
+
+            const projectId = projectResult.user.projectV2.id;
+            console.log(`📋 Project ID: ${projectId}`);
+
+            let successCount = 0;
+            let errorCount = 0;
+
+            // Add issues to project
+            for (const issue of actualIssues) {
+              try {
+                console.log(`➕ Adding issue #${issue.number}: ${issue.title}`);
+
+                const addMutation = `
+                  mutation($projectId: ID!, $contentId: ID!) {
+                    addProjectV2ItemByContentId(input: {
+                      projectId: $projectId
+                      contentId: $contentId
+                    }) {
+                      item {
+                        id
+                      }
+                    }
+                  }
+                `;
+
+                await github.graphql(addMutation, {
+                  projectId: projectId,
+                  contentId: issue.node_id
+                });
+
+                console.log(`✅ Added issue #${issue.number}`);
+                successCount++;
+
+              } catch (error) {
+                if (error.message.includes('already exists')) {
+                  console.log(`⚠️ Issue #${issue.number} already in project`);
+                } else {
+                  console.log(`❌ Failed to add issue #${issue.number}: ${error.message}`);
+                  errorCount++;
+                }
+              }
+            }
+
+            // Add PRs to project
+            for (const pr of prs.data) {
+              try {
+                console.log(`➕ Adding PR #${pr.number}: ${pr.title}`);
+
+                const addMutation = `
+                  mutation($projectId: ID!, $contentId: ID!) {
+                    addProjectV2ItemByContentId(input: {
+                      projectId: $projectId
+                      contentId: $contentId
+                    }) {
+                      item {
+                        id
+                      }
+                    }
+                  }
+                `;
+
+                await github.graphql(addMutation, {
+                  projectId: projectId,
+                  contentId: pr.node_id
+                });
+
+                console.log(`✅ Added PR #${pr.number}`);
+                successCount++;
+
+              } catch (error) {
+                if (error.message.includes('already exists')) {
+                  console.log(`⚠️ PR #${pr.number} already in project`);
+                } else {
+                  console.log(`❌ Failed to add PR #${pr.number}: ${error.message}`);
+                  errorCount++;
+                }
+              }
+            }
+
+            console.log('\n📈 Migration Summary:');
+            console.log(`  ✅ Successfully added: ${successCount}`);
+            console.log(`  ❌ Failed to add: ${errorCount}`);
+            console.log(`  📊 Total items: ${actualIssues.length + prs.data.length}`);
+
+          } catch (error) {
+            console.log(`💥 Migration failed: ${error.message}`);
+            core.setFailed(`Migration failed: ${error.message}`);
+          }
+
+    - name: Instructions for next steps
+      run: |
+        echo "🎉 Migration completed!"
+        echo ""
+        echo "📋 Next steps:"
+        echo "1. Go to https://github.com/users/Wikid82/projects/3"
+        echo "2. Check that all items were added to the project"
+        echo "3. Organize items into appropriate columns:"
+        echo "   - 📋 Todo/Backlog (default location for new items)"
+        echo "   - 🔄 In Progress (actively working)"
+        echo "   - 🔍 In Review (PRs ready for review)"
+        echo "   - 🧪 Testing (ready for testing)"
+        echo "   - ✅ Done (completed items)"
+        echo ""
+        echo "💡 You can delete this migration workflow after successful completion"
