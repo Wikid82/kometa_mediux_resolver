@@ -15,21 +15,21 @@ jobs:
     steps:
     - name: Add issue to project
       if: github.event_name == 'issues' && github.event.action == 'opened'
-      uses: actions/add-to-project@v0.6.0
+      uses: actions/add-to-project@0609a2702eefb44781da00f8e04901d6e5cd2b92 # v0.6.0
       with:
         project-url: https://github.com/users/Wikid82/projects/3
         github-token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Add PR to project
       if: github.event_name == 'pull_request' && github.event.action == 'opened'
-      uses: actions/add-to-project@v0.6.0
+      uses: actions/add-to-project@0609a2702eefb44781da00f8e04901d6e5cd2b92 # v0.6.0
       with:
         project-url: https://github.com/users/Wikid82/projects/3
         github-token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Move issue to In Progress when assigned
       if: github.event_name == 'issues' && github.event.action == 'assigned'
-      uses: actions/github-script@v7
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
@@ -37,7 +37,7 @@ jobs:
 
     - name: Move to Done when issue closed
       if: github.event_name == 'issues' && github.event.action == 'closed'
-      uses: actions/github-script@v7
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
@@ -45,7 +45,7 @@ jobs:
 
     - name: Move PR to Review when ready
       if: github.event_name == 'pull_request' && github.event.action == 'ready_for_review'
-      uses: actions/github-script@v7
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
@@ -53,7 +53,7 @@ jobs:
 
     - name: Move PR to Done when merged
       if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
-      uses: actions/github-script@v7
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
@@ -61,7 +61,7 @@ jobs:
 
     - name: Update coverage milestone
       if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
-      uses: actions/github-script@v7
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
