@@ -1,0 +1,50 @@
+name: Inspect Projects V2
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_login:
+        description: 'Optional login to inspect (user or org). If empty, will use context.repo.owner'
+        required: false
+        default: ''
+
+jobs:
+  list-projects:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: List projects using GraphQL
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const login = (context.payload && context.payload.inputs && context.payload.inputs.target_login) || context.repo.owner;
+            core.info(`Inspecting Projects V2 for: ${login}`);
+            const query = `
+              query($login:String!) {
+                user(login: $login) {
+                  projectsV2(first:50) {
+                    nodes {
+                      id
+                      title
+                      number
+                    }
+                  }
+                }
+              }
+            `;
+            try {
+              const res = await github.graphql(query, { login });
+              const nodes = res.user?.projectsV2?.nodes || [];
+              if (nodes.length === 0) {
+                core.info('No projects found for that user (or insufficient permissions).');
+                return;
+              }
+              for (const n of nodes) {
+                core.info(`Project number=${n.number} title='${n.title}' id=${n.id}`);
+              }
+            } catch (err) {
+              core.error(`GraphQL query failed: ${err}`);
+              core.setFailed(err.message || String(err));
+            }
