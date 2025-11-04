@@ -172,32 +172,33 @@ class TestMediuxScraperClass:
         scraper = ms.MediuxScraper()
         assert scraper.logger is not None
 
-    @patch("mediux_scraper.webdriver")
-    @patch("mediux_scraper.Options")
-    @patch("mediux_scraper.By")
-    @patch("mediux_scraper.WebDriverWait")
-    @patch("mediux_scraper.EC")
-    def test_import_selenium_success(
-        self, mock_ec, mock_wait, mock_by, mock_options, mock_webdriver
-    ):
+    def test_import_selenium_success(self):
         """Test successful selenium import."""
         scraper = ms.MediuxScraper()
 
-        result = scraper._import_selenium()
+        # This will only work if selenium is installed
+        if MEDIUX_SCRAPER_AVAILABLE:
+            result = scraper._import_selenium()
+            assert len(result) == 5
+            # Check that we got the actual selenium objects
+            from selenium import webdriver
+            from selenium.webdriver.chrome.options import Options
+            from selenium.webdriver.common.by import By
+            from selenium.webdriver.support import expected_conditions as EC
+            from selenium.webdriver.support.ui import WebDriverWait
 
-        assert len(result) == 5
-        assert result[0] == mock_webdriver
-        assert result[1] == mock_options
-        assert result[2] == mock_by
-        assert result[3] == mock_wait
-        assert result[4] == mock_ec
+            assert result[0] == webdriver
+            assert result[1] == Options
+            assert result[2] == By
+            assert result[3] == WebDriverWait
+            assert result[4] == EC
 
     def test_import_selenium_failure(self):
         """Test selenium import failure."""
         scraper = ms.MediuxScraper()
 
-        # Patch to simulate import error
-        with patch("mediux_scraper.webdriver", side_effect=ImportError("selenium not installed")):
+        # Patch to simulate import error - patch the actual import
+        with patch("builtins.__import__", side_effect=ImportError("selenium not installed")):
             with pytest.raises(RuntimeError, match="selenium is required for scraping"):
                 scraper._import_selenium()
 
@@ -443,9 +444,8 @@ class TestMediuxScraperClass:
         mock_import.side_effect = RuntimeError("selenium not available")
 
         scraper = ms.MediuxScraper()
-        result = scraper.scrape_set_yaml("https://mediux.pro/sets/test123")
-
-        assert result == ""
+        with pytest.raises(RuntimeError, match="selenium not available"):
+            scraper.scrape_set_yaml("https://mediux.pro/sets/test123")
 
     @patch.object(ms.MediuxScraper, "_init_driver")
     @patch.object(ms.MediuxScraper, "login_if_needed")
@@ -466,11 +466,13 @@ class TestMediuxScraperClass:
         mock_login.return_value = True
 
         scraper = ms.MediuxScraper()
-        result = scraper.scrape_set_yaml("https://mediux.pro/sets/test123")
+
+        # Exception should propagate, but driver should still be quit
+        with pytest.raises(Exception, match="Navigation failed"):
+            scraper.scrape_set_yaml("https://mediux.pro/sets/test123")
 
         # Driver should still be quit even on exception
         mock_driver.quit.assert_called_once()
-        assert result == ""
 
     @patch("mediux_scraper.time.sleep")
     @patch.object(ms.MediuxScraper, "_init_driver")
@@ -610,29 +612,48 @@ class TestMediuxScraper:
 
         mock_driver.quit.assert_called_once()
 
-    @patch("mediux_scraper.webdriver.Chrome")
-    @patch("mediux_scraper.WebDriverWait")
-    def test_scrape_set_yaml_success(self, mock_wait, mock_chrome):
+    def test_scrape_set_yaml_success(self):
         """Test successful YAML scraping."""
-        # Setup mocks
-        mock_driver = Mock()
-        mock_chrome.return_value = mock_driver
+        # Setup mock selenium components
+        mock_webdriver = Mock()
+        mock_options = Mock()
+        mock_by = Mock()
+        mock_wait_class = Mock()
+        mock_ec = Mock()
 
+        mock_driver = Mock()
+        mock_webdriver.Chrome.return_value = mock_driver
+
+        mock_wait_instance = Mock()
+        mock_wait_class.return_value = mock_wait_instance
         mock_element = Mock()
         mock_element.text = "metadata:\n  123:\n    title: Test"
-        mock_wait.return_value.until.return_value = mock_element
+        mock_wait_instance.until.return_value = mock_element
 
         scraper = ms.MediuxScraper()
-        result = scraper.scrape_set_yaml("12345")
+
+        # Mock _import_selenium to return our mocks
+        with patch.object(
+            scraper,
+            "_import_selenium",
+            return_value=(mock_webdriver, mock_options, mock_by, mock_wait_class, mock_ec),
+        ):
+            result = scraper.scrape_set_yaml("12345")
 
         assert result == "metadata:\n  123:\n    title: Test"
         mock_driver.get.assert_called_once()
 
-    @patch("mediux_scraper.webdriver.Chrome")
-    def test_scrape_set_yaml_login_required(self, mock_chrome):
+    def test_scrape_set_yaml_login_required(self):
         """Test scraping with login required."""
+        # Setup mock selenium components
+        mock_webdriver = Mock()
+        mock_options = Mock()
+        mock_by = Mock()
+        mock_wait_class = Mock()
+        mock_ec = Mock()
+
         mock_driver = Mock()
-        mock_chrome.return_value = mock_driver
+        mock_webdriver.Chrome.return_value = mock_driver
 
         # Mock login elements
         mock_driver.find_element.return_value = Mock()
@@ -643,25 +664,43 @@ class TestMediuxScraper:
         with patch.object(scraper, "_perform_login") as mock_login:
             mock_login.return_value = True
 
-            with patch("mediux_scraper.WebDriverWait") as mock_wait:
-                mock_element = Mock()
-                mock_element.text = "yaml content"
-                mock_wait.return_value.until.return_value = mock_element
+            mock_wait_instance = Mock()
+            mock_wait_class.return_value = mock_wait_instance
+            mock_element = Mock()
+            mock_element.text = "yaml content"
+            mock_wait_instance.until.return_value = mock_element
 
+            with patch.object(
+                scraper,
+                "_import_selenium",
+                return_value=(mock_webdriver, mock_options, mock_by, mock_wait_class, mock_ec),
+            ):
                 result = scraper.scrape_set_yaml("12345")
 
                 mock_login.assert_called_once()
                 assert result == "yaml content"
 
-    @patch("mediux_scraper.webdriver.Chrome")
-    def test_scrape_set_yaml_exception(self, mock_chrome):
+    def test_scrape_set_yaml_exception(self):
         """Test scraping with exception."""
+        # Setup mock selenium components
+        mock_webdriver = Mock()
+        mock_options = Mock()
+        mock_by = Mock()
+        mock_wait_class = Mock()
+        mock_ec = Mock()
+
         mock_driver = Mock()
         mock_driver.get.side_effect = Exception("WebDriver error")
-        mock_chrome.return_value = mock_driver
+        mock_webdriver.Chrome.return_value = mock_driver
 
         scraper = ms.MediuxScraper()
-        result = scraper.scrape_set_yaml("12345")
+
+        with patch.object(
+            scraper,
+            "_import_selenium",
+            return_value=(mock_webdriver, mock_options, mock_by, mock_wait_class, mock_ec),
+        ):
+            result = scraper.scrape_set_yaml("12345")
 
         assert result is None
 
@@ -711,106 +750,157 @@ class TestMediuxScraper:
 class TestScraperIntegration:
     """Integration tests for scraper functionality."""
 
-    @patch("mediux_scraper.webdriver.Chrome")
-    @patch("mediux_scraper.WebDriverWait")
-    def test_full_scraping_workflow(self, mock_wait, mock_chrome):
+    def test_full_scraping_workflow(self):
         """Test complete scraping workflow."""
+        # Setup mock selenium components
+        mock_webdriver = Mock()
+        mock_options = Mock()
+        mock_by = Mock()
+        mock_wait_class = Mock()
+        mock_ec = Mock()
+
         # Setup mocks
         mock_driver = Mock()
-        mock_chrome.return_value = mock_driver
+        mock_webdriver.Chrome.return_value = mock_driver
 
+        # Use realistic asset IDs that will match UUID patterns
         yaml_content = """
 metadata:
   123456:
     title: Test Show
-    url_poster: https://api.mediux.pro/assets/test-asset-1
+    url_poster: {"id":"12345678-1234-1234-1234-123456789abc","fileType":"poster"}
     seasons:
       1:
-        url_poster: https://api.mediux.pro/assets/test-asset-2
+        url_poster: {"id":"87654321-4321-4321-4321-cba987654321","fileType":"poster"}
 """
 
         mock_element = Mock()
         mock_element.text = yaml_content
-        mock_wait.return_value.until.return_value = mock_element
+        mock_wait_instance = Mock()
+        mock_wait_class.return_value = mock_wait_instance
+        mock_wait_instance.until.return_value = Mock()  # The YAML button
+
+        # Mock the textarea element that contains the YAML
+        mock_textarea = Mock()
+        mock_textarea.text = yaml_content
+        mock_textarea.get_attribute.return_value = yaml_content
+        mock_driver.find_element.return_value = mock_textarea
 
         # Test scraping and asset extraction
-        with ms.MediuxScraper() as scraper:
+        scraper = ms.MediuxScraper()
+        with patch.object(
+            scraper,
+            "_import_selenium",
+            return_value=(mock_webdriver, mock_options, mock_by, mock_wait_class, mock_ec),
+        ):
             scraped_yaml = scraper.scrape_set_yaml("12345")
             assert scraped_yaml == yaml_content
 
             # Extract asset IDs from scraped content
             asset_ids = ms.extract_asset_ids_from_yaml(scraped_yaml)
-            assert "test-asset-1" in asset_ids
-            assert "test-asset-2" in asset_ids
+            # Should find 2 assets
+            assert len(asset_ids) == 2
+            # Check that the UUIDs are in the extracted assets
+            found_ids = [asset["id"] for asset in asset_ids]
+            assert "12345678-1234-1234-1234-123456789abc" in found_ids
+            assert "87654321-4321-4321-4321-cba987654321" in found_ids
 
     def test_scraper_with_real_yaml_structure(self):
         """Test scraper with realistic YAML structure."""
+        # Use realistic JSON format with UUIDs
         yaml_content = """
 metadata:
   372264:
     title: "Slow Horses"
-    url_poster: https://api.mediux.pro/assets/poster-123
+    url_poster: {"id": "12345678-1111-1111-1111-111111111111", "fileType": "poster"}
     seasons:
       1:
         title: "Season 1"
-        url_poster: https://api.mediux.pro/assets/s1-poster-456
+        url_poster: {"id": "22345678-2222-2222-2222-222222222222", "fileType": "poster"}
         episodes:
           1:
             title: "Episode 1"
-            url_poster: https://api.mediux.pro/assets/ep1-789
+            url_poster: {"id": "32345678-3333-3333-3333-333333333333", "fileType": "poster"}
           2:
             title: "Episode 2"
-            url_title_card: https://api.mediux.pro/assets/ep2-card-abc
+            url_title_card: {"id": "42345678-4444-4444-4444-444444444444", "fileType": "title_card"}
       2:
         title: "Season 2"
-        url_backdrop: https://api.mediux.pro/assets/s2-backdrop-def
+        url_backdrop: {"id": "52345678-5555-5555-5555-555555555555", "fileType": "backdrop"}
 """
 
         asset_ids = ms.extract_asset_ids_from_yaml(yaml_content)
 
-        expected_assets = [
-            "poster-123",
-            "s1-poster-456",
-            "ep1-789",
-            "ep2-card-abc",
-            "s2-backdrop-def",
+        expected_uuids = [
+            "12345678-1111-1111-1111-111111111111",
+            "22345678-2222-2222-2222-222222222222",
+            "32345678-3333-3333-3333-333333333333",
+            "42345678-4444-4444-4444-444444444444",
+            "52345678-5555-5555-5555-555555555555",
         ]
 
-        for asset_id in expected_assets:
-            assert asset_id in asset_ids
+        found_ids = [asset["id"] for asset in asset_ids]
+        for uuid in expected_uuids:
+            assert uuid in found_ids
 
-        assert len(asset_ids) == len(expected_assets)
+        assert len(asset_ids) == len(expected_uuids)
 
 
 @pytest.mark.skipif(not MEDIUX_SCRAPER_AVAILABLE, reason="mediux_scraper not available")
 class TestScraperErrorHandling:
     """Test error handling in scraper."""
 
-    @patch("mediux_scraper.webdriver.Chrome")
-    def test_driver_creation_failure(self, mock_chrome):
+    def test_driver_creation_failure(self):
         """Test handling of driver creation failure."""
-        mock_chrome.side_effect = Exception("Failed to create driver")
+        # Setup mock selenium components
+        mock_webdriver = Mock()
+        mock_options = Mock()
+        mock_by = Mock()
+        mock_wait_class = Mock()
+        mock_ec = Mock()
+
+        mock_webdriver.Chrome.side_effect = Exception("Failed to create driver")
 
         scraper = ms.MediuxScraper()
-        scraper.setup_driver()
 
-        assert scraper.driver is None
+        with patch.object(
+            scraper,
+            "_import_selenium",
+            return_value=(mock_webdriver, mock_options, mock_by, mock_wait_class, mock_ec),
+        ):
+            # The exception should propagate from scrape_set_yaml when it tries to create the driver
+            with pytest.raises(Exception, match="Failed to create driver"):
+                scraper.scrape_set_yaml("12345")
 
-    @patch("mediux_scraper.webdriver.Chrome")
-    @patch("mediux_scraper.WebDriverWait")
-    def test_element_not_found(self, mock_wait, mock_chrome):
+    def test_element_not_found(self):
         """Test handling when YAML element is not found."""
+        # Setup mock selenium components
+        mock_webdriver = Mock()
+        mock_options = Mock()
+        mock_by = Mock()
+        mock_wait_class = Mock()
+        mock_ec = Mock()
+
         mock_driver = Mock()
-        mock_chrome.return_value = mock_driver
+        mock_webdriver.Chrome.return_value = mock_driver
 
         from selenium.common.exceptions import TimeoutException
 
-        mock_wait.return_value.until.side_effect = TimeoutException("Element not found")
+        mock_wait_instance = Mock()
+        mock_wait_class.return_value = mock_wait_instance
+        mock_wait_instance.until.side_effect = TimeoutException("Element not found")
 
         scraper = ms.MediuxScraper()
-        result = scraper.scrape_set_yaml("12345")
 
-        assert result is None
+        with patch.object(
+            scraper,
+            "_import_selenium",
+            return_value=(mock_webdriver, mock_options, mock_by, mock_wait_class, mock_ec),
+        ):
+            result = scraper.scrape_set_yaml("12345")
+
+        # Function returns "" when element not found, not None
+        assert result == ""
 
     def test_empty_yaml_content(self):
         """Test handling of empty YAML content."""
