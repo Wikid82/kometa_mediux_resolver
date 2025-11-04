@@ -27,9 +27,11 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const projectNumber = parseInt(core.getInput('project_number'));
-            const rawIssues = core.getInput('issue_numbers').trim();
-            const dryRun = core.getInput('dry_run') === 'true';
+            // workflow_dispatch inputs are available on context.payload.inputs
+            const inputs = (context.payload && context.payload.inputs) || {};
+            const projectNumber = parseInt(inputs.project_number || '3');
+            const rawIssues = (inputs.issue_numbers || '').toString().trim();
+            const dryRun = (inputs.dry_run || 'true') === 'true';
 
             if (!rawIssues) {
               core.setFailed('No issue_numbers provided');
