@@ -1,3 +1,4 @@
+# Target Python: 3.14
 # Production dependencies
 jsonschema>=4.19
 PyYAML>=6.0
