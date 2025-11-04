@@ -1,0 +1,116 @@
+name: Remove Project Items
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_number:
+        description: 'Project number (e.g., 3)'
+        required: true
+        default: '3'
+      issue_numbers:
+        description: 'Comma-separated issue numbers to remove from the project (e.g. 23,24,25)'
+        required: true
+        default: ''
+      dry_run:
+        description: 'If true, only log matching items without deleting'
+        required: true
+        default: 'true'
+
+jobs:
+  remove-items:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Run removal script
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const projectNumber = parseInt(core.getInput('project_number'));
+            const rawIssues = core.getInput('issue_numbers').trim();
+            const dryRun = core.getInput('dry_run') === 'true';
+
+            if (!rawIssues) {
+              core.setFailed('No issue_numbers provided');
+              return;
+            }
+
+            const issueNumbers = rawIssues.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+            const login = context.actor || context.repo.owner;
+
+            core.info(`Looking up project ${projectNumber} for ${login}`);
+
+            const projectQuery = `
+              query($number:Int!, $login:String!) {
+                user(login: $login) {
+                  projectV2(number: $number) {
+                    id
+                    items(first: 250) {
+                      nodes {
+                        id
+                        content {
+                          __typename
+                          ... on Issue {
+                            id
+                            number
+                            url
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            `;
+
+            const projectResult = await github.graphql(projectQuery, { number: projectNumber, login });
+            const project = projectResult?.user?.projectV2;
+            if (!project) {
+              core.setFailed(`Project number ${projectNumber} not found for user ${login}`);
+              return;
+            }
+            core.info(`Found project id: ${project.id}`);
+
+            // Map issue number -> project item id
+            const items = project.items.nodes || [];
+            const toDelete = [];
+            for (const node of items) {
+              const c = node.content;
+              if (c && c.__typename === 'Issue' && issueNumbers.includes(c.number)) {
+                toDelete.push({ issueNumber: c.number, itemId: node.id, issueUrl: c.url });
+              }
+            }
+
+            if (toDelete.length === 0) {
+              core.info('No matching project items found for the provided issue numbers.');
+              return;
+            }
+
+            for (const entry of toDelete) {
+              core.info(`Found item for issue #${entry.issueNumber}: ${entry.itemId} -> ${entry.issueUrl}`);
+            }
+
+            if (dryRun) {
+              core.info('Dry run enabled; not deleting items.');
+              return;
+            }
+
+            // Delete each item
+            for (const entry of toDelete) {
+              const delMutation = `
+                mutation($itemId: ID!) {
+                  deleteProjectV2Item(input: { itemId: $itemId }) {
+                    deletedItemId
+                  }
+                }
+              `;
+              try {
+                const delRes = await github.graphql(delMutation, { itemId: entry.itemId });
+                core.info(`Deleted project item for issue #${entry.issueNumber}: ${delRes.deleteProjectV2Item.deletedItemId}`);
+              } catch (err) {
+                core.error(`Failed to delete item ${entry.itemId} for issue #${entry.issueNumber}: ${err}`);
+              }
+            }
+
+            core.info('Done.');
