@@ -1,4 +1,5 @@
 """Final push for 93% coverage - working tests targeting highest impact areas."""
+
 import json
 import tempfile
 from pathlib import Path

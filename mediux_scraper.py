@@ -16,6 +16,7 @@ Design notes:
 - This scraper attempts minimal robust behavior: navigate, wait for YAML button,
   click it, and read the YAML text. It returns an empty string on failure.
 """
+
 from __future__ import annotations
 
 import logging

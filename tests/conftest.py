@@ -1,4 +1,5 @@
 """Test configuration and fixtures."""
+
 import json
 import sys
 import tempfile

@@ -1,4 +1,5 @@
 """Test remaining edge cases and uncovered lines in main module."""
+
 import json
 import sqlite3
 import tempfile

@@ -1,4 +1,5 @@
 """Test the main kometa_mediux_resolver module."""
+
 import json
 import sqlite3
 from unittest.mock import Mock, patch
@@ -433,9 +434,10 @@ class TestIntegration:
         test_file = temp_dir / "test.yml"
         test_file.write_text(yaml.safe_dump(test_content))
 
-        with patch("kometa_mediux_resolver.fetch_set_assets") as mock_fetch, patch(
-            "kometa_mediux_resolver.probe_url"
-        ) as mock_probe:
+        with (
+            patch("kometa_mediux_resolver.fetch_set_assets") as mock_fetch,
+            patch("kometa_mediux_resolver.probe_url") as mock_probe,
+        ):
             mock_fetch.return_value = [{"id": "test-asset", "type": "poster"}]
             mock_probe.return_value = {"status": 200, "body": "OK"}
 

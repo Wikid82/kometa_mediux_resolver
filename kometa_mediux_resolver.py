@@ -15,6 +15,7 @@ timestamped backup before modifying any file.
 Recommended CLI slug: `kometa-resolver` (the script filename remains
 `kometa_mediux_sync.py`). See README for examples and configuration.
 """
+
 from __future__ import annotations
 
 import argparse

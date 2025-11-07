@@ -1,4 +1,5 @@
 """Test comprehensive mediux_scraper functionality."""
+
 import re
 from unittest.mock import Mock, patch
 

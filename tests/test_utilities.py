@@ -1,4 +1,5 @@
 """Test utility functions and helpers."""
+
 import json
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -161,9 +162,10 @@ class TestHeartbeatFunction:
         }
         test_file.write_text(yaml.safe_dump(content))
 
-        with patch("kometa_mediux_resolver.fetch_set_assets", return_value=[]), patch(
-            "kometa_mediux_resolver.touch_activity"
-        ) as mock_activity:
+        with (
+            patch("kometa_mediux_resolver.fetch_set_assets", return_value=[]),
+            patch("kometa_mediux_resolver.touch_activity") as mock_activity,
+        ):
             kmr.scan_root(temp_dir, "https://api.mediux.pro", "test-key")
 
             # Should have called touch_activity at least once

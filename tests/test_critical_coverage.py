@@ -1,4 +1,5 @@
 """Focused tests to achieve 93% coverage by targeting specific uncovered lines."""
+
 import json
 import sqlite3
 import tempfile

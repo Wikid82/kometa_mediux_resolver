@@ -1,4 +1,5 @@
 """Test fetch functions and API interactions."""
+
 import json
 import re
 from unittest.mock import Mock, patch

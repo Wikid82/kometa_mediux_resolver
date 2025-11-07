@@ -1,4 +1,5 @@
 """Test CLI functionality and argument parsing."""
+
 import json
 from pathlib import Path
 from unittest.mock import patch
@@ -14,9 +15,11 @@ class TestArgumentParsing:
 
     def test_default_arguments(self):
         """Test default argument values."""
-        with patch("kometa_mediux_resolver.scan_root", return_value=[]), patch(
-            "kometa_mediux_resolver.apply_changes"
-        ), patch("sys.argv", ["kometa-resolver"]):
+        with (
+            patch("kometa_mediux_resolver.scan_root", return_value=[]),
+            patch("kometa_mediux_resolver.apply_changes"),
+            patch("sys.argv", ["kometa-resolver"]),
+        ):
             # Mock the Path.exists check for root directory
             with patch.object(Path, "exists", return_value=True):
                 result = kmr.main([])
@@ -24,9 +27,11 @@ class TestArgumentParsing:
 
     def test_verbose_argument(self):
         """Test verbose argument parsing."""
-        with patch("kometa_mediux_resolver.scan_root", return_value=[]), patch(
-            "kometa_mediux_resolver.apply_changes"
-        ), patch.object(Path, "exists", return_value=True):
+        with (
+            patch("kometa_mediux_resolver.scan_root", return_value=[]),
+            patch("kometa_mediux_resolver.apply_changes"),
+            patch.object(Path, "exists", return_value=True),
+        ):
             # Test single -v
             result = kmr.main(["-v"])
             assert result == 0
@@ -37,9 +42,11 @@ class TestArgumentParsing:
 
     def test_apply_argument(self):
         """Test apply argument."""
-        with patch("kometa_mediux_resolver.scan_root", return_value=[]), patch(
-            "kometa_mediux_resolver.apply_changes"
-        ) as mock_apply, patch.object(Path, "exists", return_value=True):
+        with (
+            patch("kometa_mediux_resolver.scan_root", return_value=[]),
+            patch("kometa_mediux_resolver.apply_changes") as mock_apply,
+            patch.object(Path, "exists", return_value=True),
+        ):
             kmr.main(["--apply"])
 
             # Check that apply_changes was called with apply=True
@@ -49,9 +56,11 @@ class TestArgumentParsing:
 
     def test_custom_api_base(self):
         """Test custom API base argument."""
-        with patch("kometa_mediux_resolver.scan_root", return_value=[]) as mock_scan, patch(
-            "kometa_mediux_resolver.apply_changes"
-        ), patch.object(Path, "exists", return_value=True):
+        with (
+            patch("kometa_mediux_resolver.scan_root", return_value=[]) as mock_scan,
+            patch("kometa_mediux_resolver.apply_changes"),
+            patch.object(Path, "exists", return_value=True),
+        ):
             custom_api = "https://custom.api.example.com"
             kmr.main(["--api-base", custom_api])
 
@@ -65,9 +74,11 @@ class TestArgumentParsing:
         """Test output file argument."""
         output_file = temp_dir / "custom_output.json"
 
-        with patch("kometa_mediux_resolver.scan_root", return_value=[]), patch(
-            "kometa_mediux_resolver.apply_changes"
-        ), patch.object(Path, "exists", return_value=True):
+        with (
+            patch("kometa_mediux_resolver.scan_root", return_value=[]),
+            patch("kometa_mediux_resolver.apply_changes"),
+            patch.object(Path, "exists", return_value=True),
+        ):
             result = kmr.main(["--output", str(output_file)])
 
             assert result == 0
@@ -75,9 +86,11 @@ class TestArgumentParsing:
 
     def test_file_filter_argument(self):
         """Test file filter argument."""
-        with patch("kometa_mediux_resolver.scan_root", return_value=[]) as mock_scan, patch(
-            "kometa_mediux_resolver.apply_changes"
-        ), patch.object(Path, "exists", return_value=True):
+        with (
+            patch("kometa_mediux_resolver.scan_root", return_value=[]) as mock_scan,
+            patch("kometa_mediux_resolver.apply_changes"),
+            patch.object(Path, "exists", return_value=True),
+        ):
             kmr.main(["--file", "test.yml"])
 
             mock_scan.assert_called_once()
@@ -107,9 +120,11 @@ class TestConfigLoading:
         config_file = config_dir / "config.yml"
         config_file.write_text(yaml.safe_dump(config_content))
 
-        with patch("kometa_mediux_resolver.scan_root", return_value=[]), patch(
-            "kometa_mediux_resolver.apply_changes"
-        ), patch.object(Path, "exists", return_value=True):
+        with (
+            patch("kometa_mediux_resolver.scan_root", return_value=[]),
+            patch("kometa_mediux_resolver.apply_changes"),
+            patch.object(Path, "exists", return_value=True),
+        ):
             result = kmr.main([])
             assert result == 0
 
@@ -117,9 +132,11 @@ class TestConfigLoading:
         """Test config loading with missing config file."""
         monkeypatch.chdir(temp_dir)
 
-        with patch("kometa_mediux_resolver.scan_root", return_value=[]), patch(
-            "kometa_mediux_resolver.apply_changes"
-        ), patch.object(Path, "exists", return_value=True):
+        with (
+            patch("kometa_mediux_resolver.scan_root", return_value=[]),
+            patch("kometa_mediux_resolver.apply_changes"),
+            patch.object(Path, "exists", return_value=True),
+        ):
             result = kmr.main([])
             assert result == 0  # Should work with default values
 
@@ -133,9 +150,11 @@ class TestConfigLoading:
         config_file = config_dir / "config.yml"
         config_file.write_text("invalid: yaml: content: [")
 
-        with patch("kometa_mediux_resolver.scan_root", return_value=[]), patch(
-            "kometa_mediux_resolver.apply_changes"
-        ), patch.object(Path, "exists", return_value=True):
+        with (
+            patch("kometa_mediux_resolver.scan_root", return_value=[]),
+            patch("kometa_mediux_resolver.apply_changes"),
+            patch.object(Path, "exists", return_value=True),
+        ):
             result = kmr.main([])
             assert result == 0  # Should work with default values
 
@@ -150,9 +169,11 @@ class TestConfigLoading:
         config_file = config_dir / "config.yml"
         config_file.write_text(yaml.safe_dump(config_content))
 
-        with patch("kometa_mediux_resolver.scan_root", return_value=[]), patch(
-            "kometa_mediux_resolver.apply_changes"
-        ) as mock_apply, patch.object(Path, "exists", return_value=True):
+        with (
+            patch("kometa_mediux_resolver.scan_root", return_value=[]),
+            patch("kometa_mediux_resolver.apply_changes") as mock_apply,
+            patch.object(Path, "exists", return_value=True),
+        ):
             # CLI --apply should override config apply: false
             kmr.main(["--apply"])
 
@@ -232,9 +253,11 @@ class TestLogging:
 
         log_file = temp_dir / "test.log"
 
-        with patch("kometa_mediux_resolver.scan_root", return_value=[]), patch(
-            "kometa_mediux_resolver.apply_changes"
-        ), patch.object(Path, "exists", return_value=True):
+        with (
+            patch("kometa_mediux_resolver.scan_root", return_value=[]),
+            patch("kometa_mediux_resolver.apply_changes"),
+            patch.object(Path, "exists", return_value=True),
+        ):
             result = kmr.main(["--log-file", str(log_file), "-v"])
 
             assert result == 0
@@ -246,9 +269,11 @@ class TestLogging:
 
         log_file = temp_dir / "logs" / "nested" / "test.log"
 
-        with patch("kometa_mediux_resolver.scan_root", return_value=[]), patch(
-            "kometa_mediux_resolver.apply_changes"
-        ), patch.object(Path, "exists", return_value=True):
+        with (
+            patch("kometa_mediux_resolver.scan_root", return_value=[]),
+            patch("kometa_mediux_resolver.apply_changes"),
+            patch.object(Path, "exists", return_value=True),
+        ):
             result = kmr.main(["--log-file", str(log_file)])
 
             assert result == 0
@@ -263,9 +288,11 @@ class TestSonarrIntegration:
         """Test Sonarr integration for prioritizing files."""
         mock_sonarr.return_value = [123456, 789012]
 
-        with patch("kometa_mediux_resolver.scan_root", return_value=[]) as mock_scan, patch(
-            "kometa_mediux_resolver.apply_changes"
-        ), patch.object(Path, "exists", return_value=True):
+        with (
+            patch("kometa_mediux_resolver.scan_root", return_value=[]) as mock_scan,
+            patch("kometa_mediux_resolver.apply_changes"),
+            patch.object(Path, "exists", return_value=True),
+        ):
             result = kmr.main(
                 [
                     "--sonarr-url",
@@ -292,9 +319,11 @@ class TestSonarrIntegration:
         """Test handling of Sonarr integration failure."""
         mock_sonarr.side_effect = Exception("Sonarr API error")
 
-        with patch("kometa_mediux_resolver.scan_root", return_value=[]) as mock_scan, patch(
-            "kometa_mediux_resolver.apply_changes"
-        ), patch.object(Path, "exists", return_value=True):
+        with (
+            patch("kometa_mediux_resolver.scan_root", return_value=[]) as mock_scan,
+            patch("kometa_mediux_resolver.apply_changes"),
+            patch.object(Path, "exists", return_value=True),
+        ):
             result = kmr.main(
                 [
                     "--sonarr-url",
@@ -321,9 +350,11 @@ class TestCacheIntegration:
 
         cache_file = temp_dir / "test_cache.db"
 
-        with patch("kometa_mediux_resolver.scan_root", return_value=[]), patch(
-            "kometa_mediux_resolver.apply_changes"
-        ), patch.object(Path, "exists", return_value=True):
+        with (
+            patch("kometa_mediux_resolver.scan_root", return_value=[]),
+            patch("kometa_mediux_resolver.apply_changes"),
+            patch.object(Path, "exists", return_value=True),
+        ):
             result = kmr.main(["--cache-db", str(cache_file)])
 
             assert result == 0
@@ -333,10 +364,11 @@ class TestCacheIntegration:
         """Test handling of cache initialization failure."""
         monkeypatch.chdir(temp_dir)
 
-        with patch("kometa_mediux_resolver.init_cache", side_effect=Exception("DB Error")), patch(
-            "kometa_mediux_resolver.scan_root", return_value=[]
-        ), patch("kometa_mediux_resolver.apply_changes"), patch.object(
-            Path, "exists", return_value=True
+        with (
+            patch("kometa_mediux_resolver.init_cache", side_effect=Exception("DB Error")),
+            patch("kometa_mediux_resolver.scan_root", return_value=[]),
+            patch("kometa_mediux_resolver.apply_changes"),
+            patch.object(Path, "exists", return_value=True),
         ):
             result = kmr.main(["--cache-db", "/invalid/path/cache.db"])
 
@@ -356,9 +388,10 @@ class TestErrorConditions:
 
     def test_scan_root_exception(self, temp_dir):
         """Test handling of scan_root exception."""
-        with patch(
-            "kometa_mediux_resolver.scan_root", side_effect=Exception("Scan error")
-        ), patch.object(Path, "exists", return_value=True):
+        with (
+            patch("kometa_mediux_resolver.scan_root", side_effect=Exception("Scan error")),
+            patch.object(Path, "exists", return_value=True),
+        ):
             # Should propagate the exception
             with pytest.raises(Exception, match="Scan error"):
                 kmr.main(["--root", str(temp_dir)])
@@ -369,9 +402,11 @@ class TestErrorConditions:
         output_path = temp_dir / "readonly"
         output_path.mkdir()
 
-        with patch("kometa_mediux_resolver.scan_root", return_value=[]), patch(
-            "kometa_mediux_resolver.apply_changes"
-        ), patch.object(Path, "exists", return_value=True):
+        with (
+            patch("kometa_mediux_resolver.scan_root", return_value=[]),
+            patch("kometa_mediux_resolver.apply_changes"),
+            patch.object(Path, "exists", return_value=True),
+        ):
             # This should handle the permission error gracefully
             try:
                 kmr.main(["--output", str(output_path)])
@@ -386,9 +421,11 @@ class TestMediuxOptions:
 
     def test_mediux_credentials(self):
         """Test MediUX credential options."""
-        with patch("kometa_mediux_resolver.scan_root", return_value=[]) as mock_scan, patch(
-            "kometa_mediux_resolver.apply_changes"
-        ), patch.object(Path, "exists", return_value=True):
+        with (
+            patch("kometa_mediux_resolver.scan_root", return_value=[]) as mock_scan,
+            patch("kometa_mediux_resolver.apply_changes"),
+            patch.object(Path, "exists", return_value=True),
+        ):
             result = kmr.main(
                 [
                     "--mediux-username",
@@ -412,9 +449,11 @@ class TestMediuxOptions:
 
     def test_chrome_options(self):
         """Test Chrome/selenium options."""
-        with patch("kometa_mediux_resolver.scan_root", return_value=[]) as mock_scan, patch(
-            "kometa_mediux_resolver.apply_changes"
-        ), patch.object(Path, "exists", return_value=True):
+        with (
+            patch("kometa_mediux_resolver.scan_root", return_value=[]) as mock_scan,
+            patch("kometa_mediux_resolver.apply_changes"),
+            patch.object(Path, "exists", return_value=True),
+        ):
             result = kmr.main(
                 [
                     "--profile-path",
@@ -454,9 +493,10 @@ class TestUsagePatterns:
 
         output_file = temp_dir / "changes.json"
 
-        with patch("kometa_mediux_resolver.fetch_set_assets") as mock_fetch, patch(
-            "kometa_mediux_resolver.probe_url"
-        ) as mock_probe:
+        with (
+            patch("kometa_mediux_resolver.fetch_set_assets") as mock_fetch,
+            patch("kometa_mediux_resolver.probe_url") as mock_probe,
+        ):
             mock_fetch.return_value = [{"id": "test-asset", "type": "poster"}]
             mock_probe.return_value = {"status": 200, "body": "OK"}
 
@@ -491,9 +531,10 @@ class TestUsagePatterns:
         }
         test_file.write_text(yaml.safe_dump(content))
 
-        with patch("kometa_mediux_resolver.fetch_set_assets") as mock_fetch, patch(
-            "kometa_mediux_resolver.probe_url"
-        ) as mock_probe:
+        with (
+            patch("kometa_mediux_resolver.fetch_set_assets") as mock_fetch,
+            patch("kometa_mediux_resolver.probe_url") as mock_probe,
+        ):
             mock_fetch.return_value = [{"id": "test-asset", "type": "poster"}]
             mock_probe.return_value = {"status": 200, "body": "OK"}
 

@@ -1,4 +1,5 @@
 """Test the mediux_scraper module."""
+
 import re
 from unittest.mock import MagicMock, Mock, patch
 
