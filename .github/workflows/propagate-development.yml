@@ -1,0 +1,90 @@
+name: Propagate Development to Feature Branches
+
+on:
+  push:
+    branches:
+      - development
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  propagate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch all branches
+        run: git fetch --all
+
+      - name: Find and update feature branches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get all remote feature branches
+          feature_branches=$(git branch -r | grep -E 'origin/feature/' | sed 's/origin\///' | sed 's/^[[:space:]]*//')
+
+          if [ -z "$feature_branches" ]; then
+            echo "No feature branches found to propagate to."
+            exit 0
+          fi
+
+          echo "Found feature branches:"
+          echo "$feature_branches"
+
+          # Process each feature branch
+          for branch in $feature_branches; do
+            echo "Processing branch: $branch"
+
+            # Check if PR already exists
+            existing_pr=$(gh pr list --head development --base "$branch" --state open --json number --jq '.[0].number')
+
+            if [ -n "$existing_pr" ]; then
+              echo "PR #$existing_pr already exists for development -> $branch"
+
+              # Add comment to existing PR
+              gh pr comment "$existing_pr" --body "🔄 New changes detected in development branch. Updated: $(date -u '+%Y-%m-%d %H:%M:%S UTC'). Please review and merge to keep $branch in sync."
+            else
+              echo "Creating new PR for development -> $branch"
+
+              # Get commit log
+              commit_log=$(git log --oneline origin/$branch..origin/development --max-count=10)
+
+              # Create PR body file
+              cat > /tmp/pr_body.md <<EOF
+          ## 🔄 Propagating Development Changes
+
+          This PR automatically merges the latest changes from development into $branch.
+
+          **Changes include:**
+          \`\`\`
+          $commit_log
+          \`\`\`
+
+          **Full comparison:** https://github.com/${{ github.repository }}/compare/$branch...development
+
+          *This PR was automatically created by the propagate-development workflow.*
+          EOF
+
+              # Create the PR
+              gh pr create \
+                --head development \
+                --base "$branch" \
+                --title "🔄 Propagate development changes to $branch" \
+                --body-file /tmp/pr_body.md \
+                --label "automated" \
+                --label "propagation" || echo "Failed to create PR for $branch (may already exist or have conflicts)"
+            fi
+
+            echo "---"
+          done
