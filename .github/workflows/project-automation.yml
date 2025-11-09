@@ -8,23 +8,40 @@ on:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
+  workflow_dispatch:
+    inputs:
+      project_url:
+        description: "Override Projects V2 URL (e.g., https://github.com/users/<login>/projects/<num>)"
+        required: false
+        default: ""
 
 jobs:
   update-project:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+      repository-projects: write
+    env:
+      PROJECT_URL: ${{ inputs.project_url != '' && inputs.project_url || vars.PROJECT_V2_URL }}
     steps:
+    - name: Show chosen project URL
+      run: |
+        echo "Project URL: $PROJECT_URL"
+
     - name: Add issue to project
-      if: github.event_name == 'issues' && github.event.action == 'opened'
+      if: github.event_name == 'issues' && github.event.action == 'opened' && env.PROJECT_URL != ''
       uses: actions/add-to-project@1b844f0c5ac6446a402e0cb3693f9be5eca188c5 # v0.6.1
       with:
-        project-url: https://github.com/users/Wikid82/projects/3
+        project-url: ${{ env.PROJECT_URL }}
         github-token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Add PR to project
-      if: github.event_name == 'pull_request' && github.event.action == 'opened'
+      if: github.event_name == 'pull_request' && github.event.action == 'opened' && env.PROJECT_URL != ''
       uses: actions/add-to-project@1b844f0c5ac6446a402e0cb3693f9be5eca188c5 # v0.6.1
       with:
-        project-url: https://github.com/users/Wikid82/projects/3
+        project-url: ${{ env.PROJECT_URL }}
         github-token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Move issue to In Progress when assigned

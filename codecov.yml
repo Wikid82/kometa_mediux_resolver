@@ -1,4 +1,5 @@
 codecov:
+  token: a599f5d3-7eb4-482a-9424-d02ed887a298
   require_ci_to_pass: false
 
 
@@ -26,9 +27,9 @@ coverage:
 comment:
   layout: "reach,diff,flags,tree"
   behavior: default
-  require_changes: no
-  require_base: no
-  require_head: yes
+  require_changes: false
+  require_base: false
+  require_head: true
 
 ignore:
   - "tests/"

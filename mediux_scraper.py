@@ -51,11 +51,22 @@ class MediuxScraper:
             RuntimeError: If selenium is not installed
         """
         try:
-            from selenium import webdriver
-            from selenium.webdriver.chrome.options import Options
-            from selenium.webdriver.common.by import By
-            from selenium.webdriver.support import expected_conditions as EC
-            from selenium.webdriver.support.ui import WebDriverWait
+            import importlib
+
+            webdriver = importlib.import_module("selenium.webdriver")
+            options_mod = importlib.import_module("selenium.webdriver.chrome.options")
+            Options = getattr(options_mod, "Options")
+            By = getattr(importlib.import_module("selenium.webdriver.common.by"), "By")
+            WebDriverWait = getattr(
+                importlib.import_module("selenium.webdriver.support.ui"), "WebDriverWait"
+            )
+            # Support both legacy attribute access (support.expected_conditions)
+            # and direct submodule import for expected_conditions.
+            try:
+                support_mod = importlib.import_module("selenium.webdriver.support")
+                EC = getattr(support_mod, "expected_conditions")
+            except Exception:
+                EC = importlib.import_module("selenium.webdriver.support.expected_conditions")
         except Exception as e:
             raise RuntimeError(
                 "selenium is required for scraping. Install via pip: selenium"
@@ -198,8 +209,11 @@ class MediuxScraper:
             driver.get(set_url)
             time.sleep(1)
 
-            # attempt login if required
-            self.login_if_needed(driver, username, password, nickname)
+            # attempt login if required (be resilient to exceptions)
+            try:
+                self.login_if_needed(driver, username, password, nickname)
+            except Exception as e:
+                self.logger.debug("Login step raised exception: %s", e)
 
             # look for YAML button
             try:
@@ -224,22 +238,21 @@ class MediuxScraper:
             try:
                 # try textarea inside modal
                 ta = driver.find_element(By.XPATH, "//textarea")
-                yaml_text = ta.get_attribute("value") or ta.text
+                val = ta.get_attribute("value")
+                if isinstance(val, str) and val:
+                    yaml_text = val
+                else:
+                    val2 = getattr(ta, "text", None)
+                    yaml_text = val2 if isinstance(val2, str) else ""
             except Exception:
                 # try pre/code blocks
                 try:
                     pre = driver.find_element(By.XPATH, "//pre")
-                    yaml_text = pre.text
+                    val = getattr(pre, "text", None)
+                    yaml_text = val if isinstance(val, str) else ""
                 except Exception:
-                    # last resort: find any element with a lot of text and 'yaml' nearby
-                    candidates = driver.find_elements(
-                        By.XPATH, "//*[string-length(normalize-space(text())) > 100]"
-                    )
-                    for el in candidates:
-                        txt = el.get_attribute("innerText") or el.text
-                        if "metadata:" in (txt or ""):
-                            yaml_text = txt
-                            break
+                    # do not pick a single node; we'll aggregate below as a fallback
+                    pass
 
             if not yaml_text:
                 # No explicit YAML modal found. As a fallback, collect large text
@@ -254,23 +267,36 @@ class MediuxScraper:
                 candidates = driver.find_elements(
                     By.XPATH, "//*[string-length(normalize-space(text())) > 100]"
                 )
+                try:
+                    iter(candidates)  # ensure iterable
+                except TypeError:
+                    candidates = [candidates] if candidates else []
                 for el in candidates:
                     try:
-                        txt = el.get_attribute("innerText") or el.text
-                        if txt:
+                        txt = None
+                        # some mocks may not have get_attribute implemented
+                        if hasattr(el, "get_attribute"):
+                            txt = el.get_attribute("innerText")
+                            if not isinstance(txt, str) or not txt:
+                                txt = getattr(el, "text", None)
+                        else:
+                            txt = getattr(el, "text", None)
+                        if isinstance(txt, str) and txt:
                             parts.append(txt)
                     except Exception:
                         continue
                 combined = "\n".join(parts)
                 if combined:
                     self.logger.debug(
-                        "Collected %d chars from large text nodes as fallback", len(combined)
+                        "Collected %d chars from %d large text nodes as fallback",
+                        len(combined),
+                        len(parts),
                     )
                     return combined
                 self.logger.debug("Could not locate YAML content for %s", set_url)
                 return ""
 
-            self.logger.info("Scraped YAML (%d chars) from %s", len(yaml_text), set_url)
+            self.logger.info("Scraped YAML (%d chars) from %s", len(yaml_text or ""), set_url)
             return yaml_text
         finally:
             try:

@@ -25,31 +25,36 @@ class TestCriticalUncoveredLines:
         with patch("kometa_mediux_resolver.fetch_set_assets") as mock_fetch:
             mock_fetch.return_value = []
 
-            # Mock the module import to succeed
-            mock_module = Mock()
-            mock_module.MediuxScraper = Mock
-            mock_module.extract_asset_ids_from_yaml = Mock()
-
+            # Mock scraper instance
             mock_scraper_instance = Mock()
             mock_scraper_instance.scrape_set_yaml.return_value = (
                 '{"assets": [{"id": "test-id", "fileType": "poster"}]}'
             )
-            mock_module.MediuxScraper.return_value = mock_scraper_instance
-            mock_module.extract_asset_ids_from_yaml.return_value = [
-                {"id": "test-id", "fileType": "poster"}
-            ]
 
-            with patch("kometa_mediux_resolver.importlib.import_module") as mock_import:
-                mock_import.return_value = mock_module
+            # Mock the module with MediuxScraper and extract functions
+            mock_module = Mock()
+            mock_scraper_class = Mock(return_value=mock_scraper_instance)
+            mock_extract = Mock(return_value=[{"id": "test-id", "fileType": "poster"}])
 
-                # This should execute lines 178-226
-                result = kmr.fetch_set_assets_with_scrape(
-                    "test_set", "https://mediux.pro/sets/123", config
-                )
+            # Set up attributes that getattr will look up
+            mock_module.MediuxScraper = mock_scraper_class
+            mock_module.extract_asset_ids_from_yaml = mock_extract
 
-                assert len(result) == 1
-                assert result[0]["id"] == "test-id"
-                assert result[0]["type"] == "poster"
+            with patch("importlib.util.spec_from_file_location") as mock_spec_from:
+                with patch("importlib.util.module_from_spec") as mock_mod_from:
+                    mock_spec = Mock()
+                    mock_spec.loader.exec_module = Mock()
+                    mock_spec_from.return_value = mock_spec
+                    mock_mod_from.return_value = mock_module
+
+                    # This should execute lines 178-226 (scraper import fallback)
+                    result = kmr.fetch_set_assets_with_scrape(
+                        "https://api.test.com", "123", None, use_scrape=True
+                    )
+
+                    assert len(result) == 1
+                    assert result[0]["id"] == "test-id"
+                    assert result[0]["type"] == "poster"
 
     def test_fetch_set_assets_with_scrape_mediux_opts_line_coverage(self):
         """Test mediux options handling in fetch_set_assets_with_scrape."""
@@ -67,31 +72,32 @@ class TestCriticalUncoveredLines:
         with patch("kometa_mediux_resolver.fetch_set_assets") as mock_fetch:
             mock_fetch.return_value = []
 
-            mock_module = Mock()
-            mock_module.MediuxScraper = Mock
-            mock_module.extract_asset_ids_from_yaml = Mock()
+            # Use scraper_factory parameter for easy mocking
+            mock_scraper = Mock()
+            mock_scraper.scrape_set_yaml.return_value = '{"data": "test"}'
+            mock_extract = Mock(return_value=["string-id"])
 
-            mock_scraper_instance = Mock()
-            mock_scraper_instance.scrape_set_yaml.return_value = '{"data": "test"}'
-            mock_module.MediuxScraper.return_value = mock_scraper_instance
-            mock_module.extract_asset_ids_from_yaml.return_value = ["string-id"]
+            def scraper_factory():
+                return mock_scraper, mock_extract
 
-            with patch("kometa_mediux_resolver.importlib.import_module") as mock_import:
-                mock_import.return_value = mock_module
+            result = kmr.fetch_set_assets_with_scrape(
+                "https://api.test.com",
+                "123",
+                None,
+                use_scrape=True,
+                mediux_opts=mediux_opts,
+                scraper_factory=scraper_factory,
+            )
 
-                result = kmr.fetch_set_assets_with_scrape(
-                    "test_set", "https://mediux.pro/sets/123", config, mediux_opts
-                )
-
-                # Verify scraper was called with mediux options
-                mock_scraper_instance.scrape_set_yaml.assert_called_once()
-                call_kwargs = mock_scraper_instance.scrape_set_yaml.call_args[1]
-                assert call_kwargs["username"] == "test_user"
-                assert call_kwargs["password"] == "test_pass"
-                assert call_kwargs["nickname"] == "test_nick"
-                assert call_kwargs["headless"] == False
-                assert call_kwargs["profile_path"] == "/test/profile"
-                assert call_kwargs["chromedriver_path"] == "/test/chromedriver"
+            # Verify scraper was called with mediux options
+            mock_scraper.scrape_set_yaml.assert_called_once()
+            call_kwargs = mock_scraper.scrape_set_yaml.call_args[1]
+            assert call_kwargs["username"] == "test_user"
+            assert call_kwargs["password"] == "test_pass"
+            assert call_kwargs["nickname"] == "test_nick"
+            assert call_kwargs["headless"] is False
+            assert call_kwargs["profile_path"] == "/test/profile"
+            assert call_kwargs["chromedriver_path"] == "/test/chromedriver"
 
     def test_fetch_set_assets_with_scrape_empty_yaml_coverage(self):
         """Test empty YAML handling."""
@@ -100,22 +106,23 @@ class TestCriticalUncoveredLines:
         with patch("kometa_mediux_resolver.fetch_set_assets") as mock_fetch:
             mock_fetch.return_value = []
 
-            mock_module = Mock()
-            mock_module.MediuxScraper = Mock
-            mock_module.extract_asset_ids_from_yaml = Mock()
+            # Use scraper_factory parameter
+            mock_scraper = Mock()
+            mock_scraper.scrape_set_yaml.return_value = ""  # Empty YAML
+            mock_extract = Mock()
 
-            mock_scraper_instance = Mock()
-            mock_scraper_instance.scrape_set_yaml.return_value = ""  # Empty YAML
-            mock_module.MediuxScraper.return_value = mock_scraper_instance
+            def scraper_factory():
+                return mock_scraper, mock_extract
 
-            with patch("kometa_mediux_resolver.importlib.import_module") as mock_import:
-                mock_import.return_value = mock_module
+            result = kmr.fetch_set_assets_with_scrape(
+                "https://api.test.com",
+                "123",
+                None,
+                use_scrape=True,
+                scraper_factory=scraper_factory,
+            )
 
-                result = kmr.fetch_set_assets_with_scrape(
-                    "test_set", "https://mediux.pro/sets/123", config
-                )
-
-                assert result == []
+            assert result == []
 
     def test_fetch_set_assets_with_scrape_no_extracted_assets(self):
         """Test when extraction returns no assets."""
@@ -124,23 +131,23 @@ class TestCriticalUncoveredLines:
         with patch("kometa_mediux_resolver.fetch_set_assets") as mock_fetch:
             mock_fetch.return_value = []
 
-            mock_module = Mock()
-            mock_module.MediuxScraper = Mock
-            mock_module.extract_asset_ids_from_yaml = Mock()
+            # Use scraper_factory parameter
+            mock_scraper = Mock()
+            mock_scraper.scrape_set_yaml.return_value = "some yaml content"
+            mock_extract = Mock(return_value=[])  # No assets extracted
 
-            mock_scraper_instance = Mock()
-            mock_scraper_instance.scrape_set_yaml.return_value = "some yaml content"
-            mock_module.MediuxScraper.return_value = mock_scraper_instance
-            mock_module.extract_asset_ids_from_yaml.return_value = []  # No assets extracted
+            def scraper_factory():
+                return mock_scraper, mock_extract
 
-            with patch("kometa_mediux_resolver.importlib.import_module") as mock_import:
-                mock_import.return_value = mock_module
+            result = kmr.fetch_set_assets_with_scrape(
+                "https://api.test.com",
+                "123",
+                None,
+                use_scrape=True,
+                scraper_factory=scraper_factory,
+            )
 
-                result = kmr.fetch_set_assets_with_scrape(
-                    "test_set", "https://mediux.pro/sets/123", config
-                )
-
-                assert result == []
+            assert result == []
 
     def test_fetch_set_assets_with_scrape_string_assets_normalization(self):
         """Test normalization of string assets vs dict assets."""
@@ -149,35 +156,36 @@ class TestCriticalUncoveredLines:
         with patch("kometa_mediux_resolver.fetch_set_assets") as mock_fetch:
             mock_fetch.return_value = []
 
-            mock_module = Mock()
-            mock_module.MediuxScraper = Mock
-            mock_module.extract_asset_ids_from_yaml = Mock()
+            # Use scraper_factory parameter
+            mock_scraper = Mock()
+            mock_scraper.scrape_set_yaml.return_value = "yaml content"
+            mock_extract = Mock(
+                return_value=[
+                    "string-asset-id",
+                    {"id": "dict-asset-id", "fileType": "backdrop"},
+                ]
+            )
 
-            mock_scraper_instance = Mock()
-            mock_scraper_instance.scrape_set_yaml.return_value = "yaml content"
-            mock_module.MediuxScraper.return_value = mock_scraper_instance
-            # Return mixed string and dict assets
-            mock_module.extract_asset_ids_from_yaml.return_value = [
-                "string-asset-id",
-                {"id": "dict-asset-id", "fileType": "backdrop"},
-            ]
+            def scraper_factory():
+                return mock_scraper, mock_extract
 
-            with patch("kometa_mediux_resolver.importlib.import_module") as mock_import:
-                mock_import.return_value = mock_module
+            result = kmr.fetch_set_assets_with_scrape(
+                "https://api.test.com",
+                "123",
+                None,
+                use_scrape=True,
+                scraper_factory=scraper_factory,
+            )
 
-                result = kmr.fetch_set_assets_with_scrape(
-                    "test_set", "https://mediux.pro/sets/123", config
-                )
-
-                assert len(result) == 2
-                # Check string asset normalization
-                assert result[0]["id"] == "string-asset-id"
-                assert result[0]["type"] is None
-                assert result[0]["raw"] == {}
-                # Check dict asset normalization
-                assert result[1]["id"] == "dict-asset-id"
-                assert result[1]["type"] == "backdrop"
-                assert "id" in result[1]["raw"]
+            assert len(result) == 2
+            # Check string asset normalization
+            assert result[0]["id"] == "string-asset-id"
+            assert result[0]["type"] is None
+            assert result[0]["raw"] == {}
+            # Check dict asset normalization
+            assert result[1]["id"] == "dict-asset-id"
+            assert result[1]["type"] == "backdrop"
+            assert "id" in result[1]["raw"]
 
     def test_pick_best_asset_correct_signature(self):
         """Test pick_best_asset with correct signature."""
@@ -209,10 +217,10 @@ class TestCriticalUncoveredLines:
 
     def test_construct_asset_url_actual_function(self):
         """Test construct_asset_url with correct parameters."""
-        config = {"api": {"base_url": "https://api.test.com"}}
+        api_base = "https://api.test.com"
         asset_id = "test-asset-id"
 
-        url = kmr.construct_asset_url(config, asset_id)
+        url = kmr.construct_asset_url(api_base, asset_id)
         assert "test-asset-id" in url
         assert url.startswith("https://api.test.com")
 
@@ -220,7 +228,7 @@ class TestCriticalUncoveredLines:
         """Test that touch_activity function exists and works."""
         # This function should exist based on the module
         try:
-            kmr.touch_activity("test_key")
+            kmr.touch_activity(5)
             # Should not raise an exception
             assert True
         except AttributeError:
@@ -240,34 +248,34 @@ class TestRemainingUncoveredPaths:
             }
         ]
 
-        # Should handle non-existent file gracefully
+        # Should handle non-existent file gracefully - function returns None
         result = kmr.apply_changes(changes, apply=False)
-        # Function should return something (exact return depends on implementation)
-        assert result is not None
+        assert result is None  # Function returns None by design
 
     def test_get_recently_aired_from_sonarr_edge_cases(self):
         """Test edge cases in Sonarr integration."""
-        config = {}
+        # Test with correct signature: sonarr_url, api_key, days
+        with patch("kometa_mediux_resolver.requests.get") as mock_get:
+            mock_response = Mock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"records": []}
+            mock_get.return_value = mock_response
 
-        # Should handle missing config gracefully
-        try:
-            result = kmr.get_recently_aired_from_sonarr(config)
-            assert result is not None
-        except AttributeError:
-            # If function doesn't exist, that's expected for this implementation
-            pass
+            result = kmr.get_recently_aired_from_sonarr("http://sonarr.local", "test-key", 7)
+            assert isinstance(result, list)
 
     def test_missing_lines_307_and_318_319(self):
         """Target specific missing lines by triggering edge cases."""
         # These lines appear to be error handling paths in fetch_set_assets
         with patch("kometa_mediux_resolver.requests.get") as mock_get:
-            # Trigger a specific error condition
+            # Trigger a specific error condition - correct parameter order: api_base, set_id
             mock_response = Mock()
+            mock_response.status_code = 404  # Non-200 status
+            mock_response.text = "Not Found"  # Provide text attribute
             mock_response.json.side_effect = ValueError("Invalid JSON")
-            mock_response.raise_for_status.return_value = None
             mock_get.return_value = mock_response
 
-            result = kmr.fetch_set_assets("test_set", "https://api.test.com")
+            result = kmr.fetch_set_assets("https://api.test.com", "test_set")
             assert result == []
 
     def test_missing_lines_340_341(self):
