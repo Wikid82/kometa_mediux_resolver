@@ -40,6 +40,25 @@ import yaml
 SET_URL_RE = re.compile(r"mediux\.pro/sets/(\d+)")
 
 
+def walk_values(obj: Any):
+    """Recursively walk all values in a nested structure (dicts, lists, tuples, sets).
+
+    Args:
+        obj: Object to walk (can be dict, list, tuple, set, or scalar)
+
+    Yields:
+        All scalar values found in the structure
+    """
+    if isinstance(obj, dict):
+        for v in obj.values():
+            yield from walk_values(v)
+    elif isinstance(obj, (list, tuple, set)):
+        for v in obj:
+            yield from walk_values(v)
+    else:
+        yield obj
+
+
 def find_set_ids_in_text(text: str) -> list[str]:
     """Extract unique MediUX set IDs from text containing set URLs.
 
@@ -125,7 +144,8 @@ def fetch_set_assets(
             atype = a.get("type") or a.get("asset_type")
             # If the asset object itself is lightweight and only has nested meta, try to find uuid inside
             if not aid:
-                for v in a.values():
+                # Use walk_values to recursively search for UUIDs in nested structures
+                for v in walk_values(a):
                     if isinstance(v, str) and re.match(r"[0-9a-fA-F-]{20,}", v):
                         aid = v
                         break
@@ -137,14 +157,72 @@ def fetch_set_assets(
     return []
 
 
+def _import_mediux_scraper() -> tuple[type, type]:
+    """Import mediux_scraper module using various strategies.
+
+    Returns:
+        tuple: (MediuxScraper class, extract_asset_ids_from_yaml function)
+
+    Raises:
+        ImportError: If module cannot be imported via any strategy
+    """
+    # Strategy 1: relative import (when used as package)
+    try:
+        from .mediux_scraper import MediuxScraper, extract_asset_ids_from_yaml
+
+        return MediuxScraper, extract_asset_ids_from_yaml
+    except Exception:
+        pass
+
+    # Strategy 2: scripts.mediux_scraper import
+    try:
+        from scripts.mediux_scraper import (  # type: ignore[import-not-found]  # noqa: E402, I001
+            MediuxScraper,
+            extract_asset_ids_from_yaml,
+        )
+
+        return MediuxScraper, extract_asset_ids_from_yaml
+    except Exception:
+        pass
+
+    # Strategy 3: direct file path import using importlib
+    try:
+        import importlib.util
+
+        mod_path = Path(__file__).resolve().parent / "mediux_scraper.py"
+        spec = importlib.util.spec_from_file_location("mediux_scraper", str(mod_path))
+        if spec is None or spec.loader is None:
+            raise ImportError("Could not load mediux_scraper module")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        MediuxScraper = getattr(mod, "MediuxScraper")
+        extract_asset_ids_from_yaml = getattr(mod, "extract_asset_ids_from_yaml")
+        return MediuxScraper, extract_asset_ids_from_yaml
+    except Exception as e:
+        raise ImportError(f"Could not import mediux_scraper: {e}") from e
+
+
 def fetch_set_assets_with_scrape(
     api_base: str,
     set_id: str,
     api_key: str | None = None,
     use_scrape: bool = False,
     mediux_opts: dict[str, Any] | None = None,
+    scraper_factory: Any = None,
 ) -> list[dict[str, Any]]:
-    """Wrap fetch_set_assets and optionally fallback to scraping the MediUX set page to extract asset ids."""
+    """Wrap fetch_set_assets and optionally fallback to scraping the MediUX set page to extract asset ids.
+
+    Args:
+        api_base: Base URL for the MediUX API
+        set_id: The set ID to fetch assets for
+        api_key: Optional API key for authentication
+        use_scrape: Whether to fallback to web scraping if API fails
+        mediux_opts: Optional scraping configuration (username, password, etc.)
+        scraper_factory: Optional callable that returns (scraper_instance, extract_function) for testing
+
+    Returns:
+        List of normalized asset dictionaries
+    """
     assets = fetch_set_assets(api_base, set_id, api_key, timeout=10)
     if assets:
         return assets
@@ -152,32 +230,19 @@ def fetch_set_assets_with_scrape(
     if not use_scrape:
         return []
 
-    # lazy import of our scraper helper (it's optional). Try a few import strategies
-    try:
-        from .mediux_scraper import MediuxScraper, extract_asset_ids_from_yaml
-    except Exception:
+    # Import or use provided scraper factory (for testing)
+    if scraper_factory is not None:
+        scraper, extract_asset_ids_from_yaml = scraper_factory()
+    else:
         try:
-            from scripts.mediux_scraper import (  # type: ignore[import-not-found]  # noqa: E402, I001
-                MediuxScraper,
-                extract_asset_ids_from_yaml,
+            MediuxScraper, extract_asset_ids_from_yaml = _import_mediux_scraper()
+            scraper = MediuxScraper()
+        except ImportError:
+            logging.warning(
+                "MediUX scraper not available (selenium not installed or import failed). Cannot scrape set %s",
+                set_id,
             )
-        except Exception:
-            # final attempt: import directly from the local mediux_scraper.py file path
-            try:
-                import importlib.util
-
-                mod_path = Path(__file__).resolve().parent / "mediux_scraper.py"
-                spec = importlib.util.spec_from_file_location("mediux_scraper", str(mod_path))
-                mod = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(mod)
-                MediuxScraper = getattr(mod, "MediuxScraper")
-                extract_asset_ids_from_yaml = getattr(mod, "extract_asset_ids_from_yaml")
-            except Exception:
-                logging.warning(
-                    "MediUX scraper not available (selenium not installed or import failed). Cannot scrape set %s",
-                    set_id,
-                )
-                return []
+            return []
 
     set_url = f"https://mediux.pro/sets/{set_id}"
     username = None
@@ -195,7 +260,6 @@ def fetch_set_assets_with_scrape(
         profile_path = mediux_opts.get("profile_path")
         chromedriver_path = mediux_opts.get("chromedriver_path")
 
-    scraper = MediuxScraper()
     try:
         yaml_text = scraper.scrape_set_yaml(
             set_url,
@@ -406,6 +470,17 @@ def get_activity_snapshot() -> tuple[int, float]:
         return _processed_count, _last_activity
 
 
+def reset_activity() -> None:
+    """Reset processed count and update last activity timestamp.
+
+    Provided for tests needing a clean slate without relying on the
+    implicit semantics of touch_activity(count_inc=0)."""
+    global _processed_count, _last_activity
+    with _activity_lock:
+        _processed_count = 0
+        _last_activity = time.time()
+
+
 def pick_best_asset(assets: list[dict[str, Any]]) -> list[str]:
     """Return asset ids ordered by preferred fileType.
 
@@ -444,16 +519,31 @@ def pick_best_asset(assets: list[dict[str, Any]]) -> list[str]:
 
     # stable sort by key_fn and return ids in that order
     sorted_assets = sorted([a for a in assets if a.get("id")], key=key_fn)
-    ids = [a.get("id") for a in sorted_assets if a.get("id")]
+    ids: list[str] = [str(a.get("id")) for a in sorted_assets if a.get("id") is not None]
 
-    # fallback: if no ids collected above, look for uuid-like strings in raw data
+    # fallback: if no ids collected above, look for uuid-like strings anywhere in raw data
     if not ids:
+        uuid_re = re.compile(
+            r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"
+        )
+
         for a in assets:
             raw = a.get("raw")
-            if isinstance(raw, dict):
-                for v in raw.values():
-                    if isinstance(v, str) and re.match(r"[0-9a-fA-F-]{20,}", v):
-                        ids.append(v)
+            if isinstance(raw, (dict, list, tuple, set)):
+                for v in walk_values(raw):
+                    if isinstance(v, str):
+                        match = uuid_re.search(v)
+                        if match:
+                            ids.append(match.group(0))
+        # keep order stable and unique
+        if ids:
+            seen: set[str] = set()
+            unique_ids: list[str] = []
+            for x in ids:
+                if x not in seen:
+                    seen.add(x)
+                    unique_ids.append(x)
+            ids = unique_ids
     return ids
 
 
@@ -468,6 +558,37 @@ def construct_asset_url(api_base: str, asset_id: str) -> str:
         Full asset URL
     """
     return f"{api_base.rstrip('/')}/assets/{asset_id}"
+
+
+def notify_sonarr(path: str, config: dict[str, Any]) -> bool:
+    """Notify Sonarr to rescan a path.
+
+    Args:
+        path: Filesystem path to rescan
+        config: Configuration dict containing `sonarr` settings
+
+    Returns:
+        True if notification succeeds, otherwise False.
+    """
+    try:
+        sonarr = (config or {}).get("sonarr") or {}
+        if not sonarr or not sonarr.get("enabled"):
+            return False
+        url = sonarr.get("url")
+        api_key = sonarr.get("api_key")
+        if not url or not api_key:
+            return False
+        import requests
+
+        endpoint = f"{str(url).rstrip('/')}/api/v3/command"
+        headers = {"X-Api-Key": api_key, "Content-Type": "application/json"}
+        payload = {"name": "RescanSeries", "path": path}
+        r = requests.post(endpoint, headers=headers, json=payload, timeout=10)
+        r.raise_for_status()
+        return True
+    except Exception as e:
+        logging.warning("Sonarr notification failed: %s", e)
+        return False
 
 
 def gather_yaml_metadata_paths(obj: Any, prefix: tuple = ()) -> list[tuple[tuple, Any]]:
@@ -700,6 +821,15 @@ def scan_root(
     return results
 
 
+def _get_schema_path():
+    """Get path to JSON schema file for validation.
+
+    Returns:
+        Path object to kometa_metadata_schema.json
+    """
+    return Path(__file__).resolve().parent / "kometa_metadata_schema.json"
+
+
 def apply_changes(
     changes: list[dict[str, Any]],
     apply: bool = False,
@@ -717,7 +847,7 @@ def apply_changes(
     try:
         import json as _json
 
-        schema_path = Path(__file__).resolve().parent / "kometa_metadata_schema.json"
+        schema_path = _get_schema_path()
         if schema_path.exists():
             schema = _json.loads(schema_path.read_text(encoding="utf-8"))
     except Exception:
@@ -894,6 +1024,32 @@ def apply_changes(
             logging.info("Would apply changes to %s (dry-run)", file_path)
 
 
+def load_config(config_path: str | None = None) -> dict[str, Any]:
+    """Load configuration from YAML file.
+
+    Args:
+        config_path: Path to config file, or None to use default location
+
+    Returns:
+        Configuration dictionary (empty dict if file not found or parse fails)
+    """
+    try:
+        if config_path is None:
+            config_path = str(Path(__file__).resolve().parent / "config" / "config.yml")
+
+        cfgp = Path(config_path)
+        if not cfgp.exists():
+            return {}
+
+        try:
+            return yaml.safe_load(cfgp.read_text(encoding="utf-8")) or {}
+        except Exception:
+            logging.warning("Failed to parse config file %s; ignoring", cfgp)
+            return {}
+    except Exception:
+        return {}
+
+
 def main(argv=None):
     """Main entry point for kometa-resolver CLI tool.
 
@@ -1040,18 +1196,7 @@ def main(argv=None):
 
     # Load configuration file (YAML). Precedence for values is:
     # CLI args > config file > defaults.
-    cfg = {}
-    try:
-        cfg_path = str(Path(__file__).resolve().parent / "config" / "config.yml")
-        cfgp = Path(cfg_path)
-        if cfgp.exists():
-            try:
-                cfg = yaml.safe_load(cfgp.read_text(encoding="utf-8")) or {}
-            except Exception:
-                logging.warning("Failed to parse config file %s; ignoring", cfgp)
-                cfg = {}
-    except Exception:
-        cfg = {}
+    cfg = load_config()
 
     # Helper: parse boolean-like values from env/config
     def _bool_from(val, default=False):
@@ -1230,11 +1375,7 @@ def main(argv=None):
 
     # Determine whether logging is enabled (default: True). We loaded `logging_enabled`
     # from config/env earlier; if it's False, suppress non-critical logging.
-    try:
-        logging_enabled
-    except NameError:
-        logging_enabled = True
-
+    # Check if logging_enabled was defined (it's set earlier in the function)
     if not logging_enabled:
         # disable logging by raising the level very high and removing handlers
         root_logger = logging.getLogger()
@@ -1256,7 +1397,7 @@ def main(argv=None):
     # query Sonarr for recently aired shows (optional)
     sonarr_ids = []
     try:
-        if args.sonarr_url:
+        if args.sonarr_url and args.sonarr_api_key:
             sonarr_ids = get_recently_aired_from_sonarr(
                 args.sonarr_url, args.sonarr_api_key, args.sonarr_days
             )

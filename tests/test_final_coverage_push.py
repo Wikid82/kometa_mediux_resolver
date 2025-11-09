@@ -74,8 +74,8 @@ class TestWorkingHighImpactCoverage:
 
         try:
             result = kmr.apply_changes(changes, apply=True)
-            # Check that the function executed without error
-            assert result is not None
+            # Function returns None by design
+            assert result is None
         finally:
             Path(temp_file_path).unlink()
 

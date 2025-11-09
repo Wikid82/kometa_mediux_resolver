@@ -176,11 +176,14 @@ class TestFetchSetAssets:
         """Test fetch with API key header."""
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"assets": []}
+        # Return at least one asset to stop after first call
+        mock_response.json.return_value = {"assets": [{"id": "test-asset"}]}
         mock_get.return_value = mock_response
 
-        kmr.fetch_set_assets("https://api.example.com", "set123", "key123")
+        result = kmr.fetch_set_assets("https://api.example.com", "set123", "key123")
 
+        # Should have called once and found assets
+        assert len(result) == 1
         mock_get.assert_called_once()
         call_args = mock_get.call_args
         assert call_args[1]["headers"]["Authorization"] == "Bearer key123"
@@ -190,11 +193,14 @@ class TestFetchSetAssets:
         """Test fetch without API key."""
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"assets": []}
+        # Return at least one asset to stop after first call
+        mock_response.json.return_value = {"assets": [{"id": "test-asset"}]}
         mock_get.return_value = mock_response
 
-        kmr.fetch_set_assets("https://api.example.com", "set123", None)
+        result = kmr.fetch_set_assets("https://api.example.com", "set123", None)
 
+        # Should have called once and found assets
+        assert len(result) == 1
         mock_get.assert_called_once()
         call_args = mock_get.call_args
         assert "Authorization" not in call_args[1]["headers"]
@@ -247,16 +253,20 @@ class TestFetchSetAssetsWithScrape:
         mock_fetch.return_value = []
 
         # Create a mock scraper that raises an exception
-        mock_scraper_class = Mock()
-        mock_scraper_instance = Mock()
-        mock_scraper_instance.scrape_set_yaml.side_effect = Exception("Scraper failed")
-        mock_scraper_class.return_value = mock_scraper_instance
+        mock_scraper = Mock()
+        mock_scraper.scrape_set_yaml.side_effect = Exception("Scraper failed")
+        mock_extract = Mock()
 
-        with patch.dict("sys.modules", {"mediux_scraper": Mock()}):
-            with patch("kometa_mediux_resolver.MediuxScraper", mock_scraper_class):
-                result = kmr.fetch_set_assets_with_scrape(
-                    "https://api.example.com", "set123", "key123", use_scrape=True
-                )
+        def scraper_factory():
+            return mock_scraper, mock_extract
+
+        result = kmr.fetch_set_assets_with_scrape(
+            "https://api.example.com",
+            "set123",
+            "key123",
+            use_scrape=True,
+            scraper_factory=scraper_factory,
+        )
 
         assert result == []
 
@@ -266,16 +276,20 @@ class TestFetchSetAssetsWithScrape:
         mock_fetch.return_value = []
 
         # Create a mock scraper that returns empty string
-        mock_scraper_class = Mock()
-        mock_scraper_instance = Mock()
-        mock_scraper_instance.scrape_set_yaml.return_value = ""
-        mock_scraper_class.return_value = mock_scraper_instance
+        mock_scraper = Mock()
+        mock_scraper.scrape_set_yaml.return_value = ""
+        mock_extract = Mock()
 
-        with patch.dict("sys.modules", {"mediux_scraper": Mock()}):
-            with patch("kometa_mediux_resolver.MediuxScraper", mock_scraper_class):
-                result = kmr.fetch_set_assets_with_scrape(
-                    "https://api.example.com", "set123", "key123", use_scrape=True
-                )
+        def scraper_factory():
+            return mock_scraper, mock_extract
+
+        result = kmr.fetch_set_assets_with_scrape(
+            "https://api.example.com",
+            "set123",
+            "key123",
+            use_scrape=True,
+            scraper_factory=scraper_factory,
+        )
 
         assert result == []
 
@@ -285,23 +299,25 @@ class TestFetchSetAssetsWithScrape:
         mock_fetch.return_value = []
 
         # Create mocks for scraper
-        mock_scraper_class = Mock()
-        mock_scraper_instance = Mock()
-        mock_scraper_instance.scrape_set_yaml.return_value = "yaml content"
-        mock_scraper_class.return_value = mock_scraper_instance
+        mock_scraper = Mock()
+        mock_scraper.scrape_set_yaml.return_value = "yaml content"
+        mock_extract = Mock(
+            return_value=[
+                {"id": "asset-123", "fileType": "poster"},
+                {"id": "asset-456", "fileType": "backdrop"},
+            ]
+        )
 
-        mock_extract = Mock()
-        mock_extract.return_value = [
-            {"id": "asset-123", "fileType": "poster"},
-            {"id": "asset-456", "fileType": "backdrop"},
-        ]
+        def scraper_factory():
+            return mock_scraper, mock_extract
 
-        with patch.dict("sys.modules", {"mediux_scraper": Mock()}):
-            with patch("kometa_mediux_resolver.MediuxScraper", mock_scraper_class):
-                with patch("kometa_mediux_resolver.extract_asset_ids_from_yaml", mock_extract):
-                    result = kmr.fetch_set_assets_with_scrape(
-                        "https://api.example.com", "set123", "key123", use_scrape=True
-                    )
+        result = kmr.fetch_set_assets_with_scrape(
+            "https://api.example.com",
+            "set123",
+            "key123",
+            use_scrape=True,
+            scraper_factory=scraper_factory,
+        )
 
         assert len(result) == 2
         assert result[0]["id"] == "asset-123"
@@ -315,20 +331,20 @@ class TestFetchSetAssetsWithScrape:
         mock_fetch.return_value = []
 
         # Create mocks for scraper
-        mock_scraper_class = Mock()
-        mock_scraper_instance = Mock()
-        mock_scraper_instance.scrape_set_yaml.return_value = "yaml content"
-        mock_scraper_class.return_value = mock_scraper_instance
+        mock_scraper = Mock()
+        mock_scraper.scrape_set_yaml.return_value = "yaml content"
+        mock_extract = Mock(return_value=["asset-123", "asset-456"])
 
-        mock_extract = Mock()
-        mock_extract.return_value = ["asset-123", "asset-456"]
+        def scraper_factory():
+            return mock_scraper, mock_extract
 
-        with patch.dict("sys.modules", {"mediux_scraper": Mock()}):
-            with patch("kometa_mediux_resolver.MediuxScraper", mock_scraper_class):
-                with patch("kometa_mediux_resolver.extract_asset_ids_from_yaml", mock_extract):
-                    result = kmr.fetch_set_assets_with_scrape(
-                        "https://api.example.com", "set123", "key123", use_scrape=True
-                    )
+        result = kmr.fetch_set_assets_with_scrape(
+            "https://api.example.com",
+            "set123",
+            "key123",
+            use_scrape=True,
+            scraper_factory=scraper_factory,
+        )
 
         assert len(result) == 2
         assert result[0]["id"] == "asset-123"
@@ -342,20 +358,20 @@ class TestFetchSetAssetsWithScrape:
         mock_fetch.return_value = []
 
         # Create mocks for scraper
-        mock_scraper_class = Mock()
-        mock_scraper_instance = Mock()
-        mock_scraper_instance.scrape_set_yaml.return_value = "yaml content"
-        mock_scraper_class.return_value = mock_scraper_instance
+        mock_scraper = Mock()
+        mock_scraper.scrape_set_yaml.return_value = "yaml content"
+        mock_extract = Mock(return_value=[])
 
-        mock_extract = Mock()
-        mock_extract.return_value = []
+        def scraper_factory():
+            return mock_scraper, mock_extract
 
-        with patch.dict("sys.modules", {"mediux_scraper": Mock()}):
-            with patch("kometa_mediux_resolver.MediuxScraper", mock_scraper_class):
-                with patch("kometa_mediux_resolver.extract_asset_ids_from_yaml", mock_extract):
-                    result = kmr.fetch_set_assets_with_scrape(
-                        "https://api.example.com", "set123", "key123", use_scrape=True
-                    )
+        result = kmr.fetch_set_assets_with_scrape(
+            "https://api.example.com",
+            "set123",
+            "key123",
+            use_scrape=True,
+            scraper_factory=scraper_factory,
+        )
 
         assert result == []
 
@@ -381,20 +397,25 @@ class TestFetchSetAssetsWithScrape:
             "chromedriver_path": "/path/to/chromedriver",
         }
 
-        with patch.dict("sys.modules", {"mediux_scraper": Mock()}):
-            with patch("kometa_mediux_resolver.MediuxScraper", mock_scraper_class):
-                with patch("kometa_mediux_resolver.extract_asset_ids_from_yaml", mock_extract):
-                    result = kmr.fetch_set_assets_with_scrape(
-                        "https://api.example.com",
-                        "set123",
-                        "key123",
-                        use_scrape=True,
-                        mediux_opts=mediux_opts,
-                    )
+        mock_scraper = Mock()
+        mock_scraper.scrape_set_yaml.return_value = "yaml content"
+        mock_extract = Mock(return_value=["asset-123"])
+
+        def scraper_factory():
+            return mock_scraper, mock_extract
+
+        result = kmr.fetch_set_assets_with_scrape(
+            "https://api.example.com",
+            "set123",
+            "key123",
+            use_scrape=True,
+            mediux_opts=mediux_opts,
+            scraper_factory=scraper_factory,
+        )
 
         # Verify scraper was called with correct options
-        mock_scraper_instance.scrape_set_yaml.assert_called_once()
-        call_args = mock_scraper_instance.scrape_set_yaml.call_args[1]
+        mock_scraper.scrape_set_yaml.assert_called_once()
+        call_args = mock_scraper.scrape_set_yaml.call_args[1]
         assert call_args["username"] == "testuser"
         assert call_args["password"] == "testpass"
         assert call_args["nickname"] == "testnick"
