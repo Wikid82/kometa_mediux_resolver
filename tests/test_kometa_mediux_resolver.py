@@ -274,7 +274,7 @@ class TestMainFunction:
 
         mock_scan.return_value = []
 
-        # Test dry run
+        # Test dry run with no --apply flag
         result = kmr.main(["--root", str(temp_dir)])
 
         assert result == 0

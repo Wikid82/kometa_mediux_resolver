@@ -1224,8 +1224,9 @@ def main(argv=None):
     args.root = root_override
 
     # Resolve apply/backup defaults (CLI > config)
-    cfg_apply = cfg.get("apply", True)
-    args.apply = args.apply or cfg_apply
+    # Default to dry-run unless explicitly enabled via config or flag
+    cfg_apply = cfg.get("apply", False)
+    args.apply = bool(args.apply or cfg_apply)
 
     cfg_backup = cfg.get("backup", False)
     # CLI flag --apply-backup overrides config
