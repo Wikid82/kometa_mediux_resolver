@@ -46,7 +46,7 @@ jobs:
 
     - name: Move issue to In Progress when assigned
       if: github.event_name == 'issues' && github.event.action == 'assigned'
-      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+      uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
@@ -54,7 +54,7 @@ jobs:
 
     - name: Move to Done when issue closed
       if: github.event_name == 'issues' && github.event.action == 'closed'
-      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+      uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
@@ -62,7 +62,7 @@ jobs:
 
     - name: Move PR to Review when ready
       if: github.event_name == 'pull_request' && github.event.action == 'ready_for_review'
-      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+      uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
@@ -70,7 +70,7 @@ jobs:
 
     - name: Move PR to Done when merged
       if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
-      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+      uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
@@ -78,7 +78,7 @@ jobs:
 
     - name: Update coverage milestone
       if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
-      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+      uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
